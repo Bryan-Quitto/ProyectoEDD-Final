@@ -40,8 +40,9 @@ export interface Lesson {
   title: string;
   content: string;
   lesson_type: 'video' | 'text' | 'interactive' | 'quiz';
-  order_index: number;
+  content_url?: string;
   estimated_duration: number;
+  order_index: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -57,7 +58,8 @@ export interface Evaluation {
   questions: Question[];
   max_score: number;
   passing_score: number;
-  time_limit?: number; // en minutos
+  max_attempts: number;
+  time_limit_minutes?: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -78,12 +80,13 @@ export interface EvaluationAttempt {
   id: string;
   evaluation_id: string;
   student_id: string;
+  attempt_number: number;
   answers: Record<string, any>;
   score: number;
   max_score: number;
   percentage: number;
   passed: boolean;
-  time_taken?: number; // en minutos
+  time_taken_minutes?: number;
   started_at: string;
   completed_at?: string;
   created_at: string;
@@ -182,4 +185,44 @@ export interface StudentFilters {
   progress_min?: number;
   progress_max?: number;
   last_activity_after?: string;
+}
+
+// Tipos para creación y actualización de entidades
+export interface CreateCourseData {
+  title: string;
+  description: string;
+  difficulty_level: 'beginner' | 'intermediate' | 'advanced';
+  estimated_duration: number;
+  teacher_id: string;
+}
+
+export interface UpdateCourseData {
+  title?: string;
+  description?: string;
+  difficulty_level?: 'beginner' | 'intermediate' | 'advanced';
+  estimated_duration?: number;
+  teacher_id?: string;
+  is_active?: boolean;
+}
+
+export interface CreateRecommendationData {
+  student_id: string;
+  recommendation_type: 'content' | 'study_plan' | 'difficulty_adjustment';
+  title: string;
+  description: string;
+  recommended_content_id?: string;
+  recommended_content_type?: 'lesson' | 'course' | 'evaluation';
+  priority: 'low' | 'medium' | 'high';
+  expires_at?: string;
+}
+
+export interface UpdatePerformanceStateData {
+  overall_progress?: number;
+  average_score?: number;
+  total_time_spent?: number;
+  lessons_completed?: number;
+  evaluations_passed?: number;
+  current_difficulty?: 'beginner' | 'intermediate' | 'advanced';
+  learning_pace?: 'slow' | 'normal' | 'fast';
+  last_activity?: string;
 }
