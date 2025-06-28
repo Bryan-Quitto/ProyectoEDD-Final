@@ -16,9 +16,9 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
     loading,
     error,
     generateRecommendations,
+    fetchRecommendations,
     markAsRead,
     markAsApplied,
-    refreshRecommendations
   } = useRecommendations(studentId);
 
   const [filter, setFilter] = useState<'all' | 'unread' | 'applied'>('all');
@@ -29,7 +29,6 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
     applied: 0
   });
 
-  // Calculate statistics
   useEffect(() => {
     const total = recommendations.length;
     const unread = recommendations.filter(r => !r.is_read).length;
@@ -38,7 +37,6 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
     setStats({ total, unread, applied });
   }, [recommendations]);
 
-  // Filter recommendations based on current filter
   const filteredRecommendations = recommendations.filter(recommendation => {
     switch (filter) {
       case 'unread':
@@ -90,7 +88,6 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
 
   return (
     <div className={`recommendation-panel bg-white rounded-lg shadow-md ${className}`}>
-      {/* Header */}
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold text-gray-800">Recomendaciones Personalizadas</h2>
@@ -110,7 +107,6 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
           </button>
         </div>
 
-        {/* Statistics */}
         <div className="grid grid-cols-3 gap-4 mb-4">
           <div className="text-center p-3 bg-gray-50 rounded-lg">
             <div className="text-2xl font-bold text-gray-800">{stats.total}</div>
@@ -126,7 +122,6 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
           </div>
         </div>
 
-        {/* Filter Buttons */}
         <div className="flex space-x-2">
           <button
             onClick={() => setFilter('all')}
@@ -161,7 +156,6 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
         </div>
       </div>
 
-      {/* Content */}
       <div className="p-6">
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -172,7 +166,7 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
               </div>
             </div>
             <button
-              onClick={refreshRecommendations}
+              onClick={fetchRecommendations}
               className="mt-2 text-red-600 hover:text-red-800 underline"
             >
               Intentar de nuevo

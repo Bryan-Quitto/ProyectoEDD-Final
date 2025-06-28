@@ -1,35 +1,64 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './hooks/useAuth';
+import MainLayout from './components/layout/MainLayout';
+import { LoginPage } from './pages/LoginPage';
+import StudentDashboard from './pages/StudentDashboard';
+import CourseCatalogPage from './pages/CourseCatalogPage';
+import CourseDetailPage from './pages/CourseDetailPage';
+import LessonViewPage from './pages/LessonViewPage';
+import { Spinner } from './components/ui/Spinner';
+
+const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="w-screen h-screen flex items-center justify-center bg-gray-50">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+};
 
 function App() {
-  const [count, setCount] = useState(0)
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="w-screen h-screen flex items-center justify-center bg-gray-50">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <Routes>
+      <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" replace />} />
+      <Route
+        path="/*"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <Routes>
+                <Route path="/" element={<StudentDashboard />} />
+                <Route path="/courses" element={<CourseCatalogPage />} />
+                <Route path="/courses/:courseId" element={<CourseDetailPage />} />
+                <Route path="/courses/:courseId/lessons/:lessonId" element={<LessonViewPage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
+  );
 }
 
-export default App
+export default App;

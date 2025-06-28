@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { Recommendation } from '../types';
 import { RecommendationService } from '../services/recommendationService';
 
@@ -7,13 +7,14 @@ export const useRecommendations = (studentId: string) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchRecommendations = async () => {
+  const fetchRecommendations = useCallback(async () => {
+    if (!studentId) return;
     try {
       setLoading(true);
       setError(null);
       const response = await RecommendationService.getRecommendations(studentId);
       if (response.success) {
-        setRecommendations(response.data);
+        setRecommendations(response.data || []);
       } else {
         setError(response.error || 'Error al cargar recomendaciones');
       }
@@ -22,15 +23,16 @@ export const useRecommendations = (studentId: string) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [studentId]);
 
   const generateRecommendations = async () => {
+    if (!studentId) return;
     try {
       setLoading(true);
       setError(null);
       const response = await RecommendationService.generateRecommendations(studentId);
       if (response.success) {
-        setRecommendations(response.data);
+        setRecommendations(response.data || []);
       } else {
         setError(response.error || 'Error al generar recomendaciones');
       }
@@ -76,10 +78,8 @@ export const useRecommendations = (studentId: string) => {
   };
 
   useEffect(() => {
-    if (studentId) {
-      fetchRecommendations();
-    }
-  }, [studentId]);
+    fetchRecommendations();
+  }, [fetchRecommendations]);
 
   return {
     recommendations,

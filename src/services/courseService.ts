@@ -1,50 +1,77 @@
-import axios from 'axios';
-import type { Course, Module, ApiResponse, PaginatedResponse, CourseFilters } from '../types';
+import { supabase } from "./supabase";
+import type { Course, CourseDetails, CourseFilters, ApiResponse } from "../types";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+const getAllCourses = async (filters: CourseFilters = {}): Promise<ApiResponse<Course[]>> => {
+    let query = supabase
+        .from('courses')
+        .select(`
+            id,
+            title,
+            description,
+            difficulty_level,
+            estimated_duration,
+            is_active,
+            created_at,
+            updated_at,
+            teacher_id,
+            image_url,
+            users (full_name)
+        `)
+        .eq('is_active', true);
 
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+    if (filters.search) {
+        query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+    }
+    if (filters.difficulty) {
+        query = query.eq('difficulty_level', filters.difficulty);
+    }
+    
+    const { data, error } = await query;
 
-export class CourseService {
-  static async getAllCourses(filters?: CourseFilters): Promise<PaginatedResponse<Course>> {
-    const params = new URLSearchParams();
-    if (filters?.search) params.append('search', filters.search);
-    if (filters?.category) params.append('category', filters.category);
-    if (filters?.level) params.append('level', filters.level);
-    if (filters?.page) params.append('page', filters.page.toString());
-    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (data) {
+        const formattedData = data.map(course => ({
+            ...course,
+            // @ts-ignore
+            instructor_name: course.users?.full_name || 'N/A'
+        }));
+        // @ts-ignore
+        return { data: formattedData, error: null };
+    }
+    
+    return { data, error };
+};
 
-    const response = await api.get(`/courses?${params.toString()}`);
-    return response.data;
-  }
+const getCourseById = async (id: string): Promise<ApiResponse<CourseDetails>> => {
+    const { data, error } = await supabase
+        .from('courses')
+        .select(`
+            *,
+            instructor_name:users(full_name),
+            modules (
+                *,
+                lessons (
+                    *,
+                    evaluations (id, title)
+                )
+            )
+        `)
+        .eq('id', id)
+        .single();
+        
+    if (data) {
+        const formattedData = {
+            ...data,
+            // @ts-ignore
+            instructor_name: data.users?.full_name || 'N/A'
+        };
+        // @ts-ignore
+        return { data: formattedData as CourseDetails | null, error };
+    }
 
-  static async getCourseById(id: string): Promise<ApiResponse<Course>> {
-    const response = await api.get(`/courses/${id}`);
-    return response.data;
-  }
+    return { data: null, error };
+};
 
-  static async getCourseModules(courseId: string): Promise<ApiResponse<Module[]>> {
-    const response = await api.get(`/courses/${courseId}/modules`);
-    return response.data;
-  }
-
-  static async createCourse(course: Omit<Course, 'id' | 'created_at' | 'updated_at'>): Promise<ApiResponse<Course>> {
-    const response = await api.post('/courses', course);
-    return response.data;
-  }
-
-  static async updateCourse(id: string, course: Partial<Course>): Promise<ApiResponse<Course>> {
-    const response = await api.put(`/courses/${id}`, course);
-    return response.data;
-  }
-
-  static async deleteCourse(id: string): Promise<ApiResponse<void>> {
-    const response = await api.delete(`/courses/${id}`);
-    return response.data;
-  }
-}
+export const CourseService = {
+    getAllCourses,
+    getCourseById
+};

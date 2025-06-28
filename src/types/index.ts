@@ -1,4 +1,4 @@
-// Tipos de Usuario
+
 export interface User {
   id: string;
   email: string;
@@ -8,37 +8,45 @@ export interface User {
   updated_at: string;
 }
 
-// Tipos de Curso
+export interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  signOut: () => Promise<void>;
+}
+
 export interface Course {
   id: string;
   title: string;
-  description: string;
+  description: string | null;
   difficulty_level: 'beginner' | 'intermediate' | 'advanced';
-  estimated_duration: number; // en minutos
-  teacher_id: string;
+  estimated_duration: number;
+  teacher_id: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  image_url?: string;
+  instructor_name?: string;
+  total_lessons?: number;
+  completed_lessons?: number;
 }
 
-// Tipos de Módulo
 export interface Module {
   id: string;
   course_id: string;
   title: string;
-  description: string;
+  description: string | null;
   order_index: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  lessons?: Lesson[];
 }
 
-// Tipos de Lección
 export interface Lesson {
   id: string;
   module_id: string;
   title: string;
-  content: string;
+  content: string | null;
   lesson_type: 'video' | 'text' | 'interactive' | 'quiz';
   content_url?: string;
   estimated_duration: number;
@@ -46,16 +54,17 @@ export interface Lesson {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  evaluations?: Evaluation[];
+  is_completed_by_user?: boolean;
 }
 
-// Tipos de Evaluación
 export interface Evaluation {
   id: string;
   lesson_id: string;
   title: string;
-  description: string;
+  description: string | null;
   evaluation_type: 'quiz' | 'assignment' | 'project';
-  questions: Question[];
+  questions: any; // JSONB
   max_score: number;
   passing_score: number;
   max_attempts: number;
@@ -65,23 +74,12 @@ export interface Evaluation {
   updated_at: string;
 }
 
-export interface Question {
-  id: string;
-  question_text: string;
-  question_type: 'multiple_choice' | 'true_false' | 'short_answer' | 'essay';
-  options?: string[]; // para multiple choice
-  correct_answer: string | string[];
-  points: number;
-  explanation?: string;
-}
-
-// Tipos de Intento de Evaluación
 export interface EvaluationAttempt {
   id: string;
   evaluation_id: string;
   student_id: string;
   attempt_number: number;
-  answers: Record<string, any>;
+  answers: any; // JSONB
   score: number;
   max_score: number;
   percentage: number;
@@ -92,28 +90,26 @@ export interface EvaluationAttempt {
   created_at: string;
 }
 
-// Tipos de Progreso del Estudiante
 export interface StudentProgress {
   id: string;
   student_id: string;
   lesson_id: string;
   status: 'not_started' | 'in_progress' | 'completed';
   progress_percentage: number;
-  time_spent: number; // en minutos
+  time_spent: number;
   last_accessed: string;
   completed_at?: string;
   created_at: string;
   updated_at: string;
 }
 
-// Tipos de Estado de Rendimiento
 export interface PerformanceState {
   id: string;
   student_id: string;
   course_id: string;
-  overall_progress: number; // 0-100
-  average_score: number; // 0-100
-  total_time_spent: number; // en minutos
+  overall_progress: number;
+  average_score: number;
+  total_time_spent: number;
   lessons_completed: number;
   evaluations_passed: number;
   current_difficulty: 'beginner' | 'intermediate' | 'advanced';
@@ -123,11 +119,10 @@ export interface PerformanceState {
   updated_at: string;
 }
 
-// Tipos de Recomendación
 export interface Recommendation {
   id: string;
   student_id: string;
-  recommendation_type: 'content' | 'study_plan' | 'difficulty_adjustment';
+  recommendation_type: string;
   title: string;
   description: string;
   recommended_content_id?: string;
@@ -137,14 +132,26 @@ export interface Recommendation {
   is_applied: boolean;
   created_at: string;
   expires_at?: string;
+  action_url?: string;
+  reason?: string;
+  course_id?: string;
+  lesson_id?: string;
 }
 
-// Tipos para Respuestas de API
+export interface CourseDetails extends Course {
+  modules: Module[];
+}
+
 export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
+  data: T | null;
+  error: any | null;
+}
+
+export interface CourseFilters {
+  search?: string;
+  difficulty?: 'beginner' | 'intermediate' | 'advanced';
+  page?: number;
+  limit?: number;
 }
 
 export interface PaginatedResponse<T> {
@@ -152,77 +159,4 @@ export interface PaginatedResponse<T> {
   total: number;
   page: number;
   limit: number;
-  totalPages: number;
-}
-
-// Tipos para el Árbol de Decisión
-export interface DecisionNode {
-  id: string;
-  condition: string;
-  threshold?: number;
-  trueNode?: DecisionNode;
-  falseNode?: DecisionNode;
-  action?: RecommendationAction;
-}
-
-export interface RecommendationAction {
-  type: 'content' | 'difficulty' | 'pace' | 'review';
-  target: string;
-  priority: 'low' | 'medium' | 'high';
-  message: string;
-}
-
-// Tipos para Filtros y Búsquedas
-export interface CourseFilters {
-  difficulty?: 'beginner' | 'intermediate' | 'advanced';
-  teacher_id?: string;
-  is_active?: boolean;
-  search?: string;
-}
-
-export interface StudentFilters {
-  course_id?: string;
-  progress_min?: number;
-  progress_max?: number;
-  last_activity_after?: string;
-}
-
-// Tipos para creación y actualización de entidades
-export interface CreateCourseData {
-  title: string;
-  description: string;
-  difficulty_level: 'beginner' | 'intermediate' | 'advanced';
-  estimated_duration: number;
-  teacher_id: string;
-}
-
-export interface UpdateCourseData {
-  title?: string;
-  description?: string;
-  difficulty_level?: 'beginner' | 'intermediate' | 'advanced';
-  estimated_duration?: number;
-  teacher_id?: string;
-  is_active?: boolean;
-}
-
-export interface CreateRecommendationData {
-  student_id: string;
-  recommendation_type: 'content' | 'study_plan' | 'difficulty_adjustment';
-  title: string;
-  description: string;
-  recommended_content_id?: string;
-  recommended_content_type?: 'lesson' | 'course' | 'evaluation';
-  priority: 'low' | 'medium' | 'high';
-  expires_at?: string;
-}
-
-export interface UpdatePerformanceStateData {
-  overall_progress?: number;
-  average_score?: number;
-  total_time_spent?: number;
-  lessons_completed?: number;
-  evaluations_passed?: number;
-  current_difficulty?: 'beginner' | 'intermediate' | 'advanced';
-  learning_pace?: 'slow' | 'normal' | 'fast';
-  last_activity?: string;
 }

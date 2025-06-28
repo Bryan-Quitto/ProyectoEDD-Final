@@ -1,23 +1,20 @@
 import React from 'react';
-import { Course } from '../../types';
+import { Link } from 'react-router-dom';
+import type { Course } from '../../types';
 
 interface CourseCardProps {
   course: Course;
-  onClick?: () => void;
   className?: string;
 }
 
 export const CourseCard: React.FC<CourseCardProps> = ({
   course,
-  onClick,
   className = ''
 }) => {
-  // Calculate progress percentage
-  const progressPercentage = course.total_lessons > 0 
-    ? Math.round((course.completed_lessons / course.total_lessons) * 100)
+  const progressPercentage = (course.total_lessons || 0) > 0 
+    ? Math.round(((course.completed_lessons || 0) / (course.total_lessons || 1)) * 100)
     : 0;
 
-  // Get difficulty color
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty.toLowerCase()) {
       case 'beginner':
@@ -34,7 +31,6 @@ export const CourseCard: React.FC<CourseCardProps> = ({
     }
   };
 
-  // Format duration
   const formatDuration = (minutes: number) => {
     if (minutes < 60) {
       return `${minutes} min`;
@@ -44,9 +40,8 @@ export const CourseCard: React.FC<CourseCardProps> = ({
     return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
   };
 
-  // Format creation date
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-ES', {
+    return new Date(dateString).toLocaleDate-string('es-ES', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
@@ -54,11 +49,11 @@ export const CourseCard: React.FC<CourseCardProps> = ({
   };
 
   return (
-    <div 
-      className={`course-card bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 cursor-pointer border border-gray-200 hover:border-blue-300 ${className}`}
-      onClick={onClick}
+    <Link 
+      to={`/courses/${course.id}`}
+      state={{ course }}
+      className={`course-card flex flex-col bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border border-gray-200 hover:border-blue-300 ${className}`}
     >
-      {/* Course Image */}
       <div className="relative">
         {course.image_url ? (
           <img 
@@ -72,7 +67,6 @@ export const CourseCard: React.FC<CourseCardProps> = ({
           </div>
         )}
         
-        {/* Progress overlay */}
         {progressPercentage > 0 && (
           <div className="absolute top-2 right-2 bg-white bg-opacity-90 rounded-full px-2 py-1">
             <span className="text-xs font-medium text-gray-700">
@@ -82,9 +76,7 @@ export const CourseCard: React.FC<CourseCardProps> = ({
         )}
       </div>
 
-      {/* Course Content */}
-      <div className="p-4">
-        {/* Header */}
+      <div className="p-4 flex-grow flex flex-col">
         <div className="mb-3">
           <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-2">
             {course.title}
@@ -92,12 +84,12 @@ export const CourseCard: React.FC<CourseCardProps> = ({
           
           <div className="flex items-center justify-between mb-2">
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-              getDifficultyColor(course.difficulty)
+              getDifficultyColor(course.difficulty_level)
             }`}>
-              {course.difficulty === 'beginner' ? 'Principiante' :
-               course.difficulty === 'intermediate' ? 'Intermedio' :
-               course.difficulty === 'advanced' ? 'Avanzado' :
-               course.difficulty}
+              {course.difficulty_level === 'beginner' ? 'Principiante' :
+               course.difficulty_level === 'intermediate' ? 'Intermedio' :
+               course.difficulty_level === 'advanced' ? 'Avanzado' :
+               course.difficulty_level}
             </span>
             
             {course.estimated_duration && (
@@ -109,17 +101,15 @@ export const CourseCard: React.FC<CourseCardProps> = ({
           </div>
         </div>
 
-        {/* Description */}
-        <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+        <p className="text-gray-600 text-sm mb-4 line-clamp-3 flex-grow">
           {course.description}
         </p>
 
-        {/* Progress Bar */}
-        {course.total_lessons > 0 && (
+        {(course.total_lessons || 0) > 0 && (
           <div className="mb-4">
             <div className="flex justify-between text-xs text-gray-600 mb-1">
               <span>Progreso</span>
-              <span>{course.completed_lessons}/{course.total_lessons} lecciones</span>
+              <span>{course.completed_lessons || 0}/{course.total_lessons || 0} lecciones</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div 
@@ -130,20 +120,19 @@ export const CourseCard: React.FC<CourseCardProps> = ({
           </div>
         )}
 
-        {/* Footer */}
-        <div className="flex items-center justify-between text-xs text-gray-500">
+        <div className="flex items-center justify-between text-xs text-gray-500 mt-auto">
           <div className="flex items-center space-x-3">
-            {course.total_lessons > 0 && (
+            {(course.total_lessons || 0) > 0 && (
               <span className="flex items-center">
                 <span className="mr-1">📄</span>
                 {course.total_lessons} lecciones
               </span>
             )}
             
-            {course.instructor && (
+            {course.instructor_name && (
               <span className="flex items-center">
                 <span className="mr-1">👨‍🏫</span>
-                {course.instructor}
+                {course.instructor_name}
               </span>
             )}
           </div>
@@ -151,13 +140,12 @@ export const CourseCard: React.FC<CourseCardProps> = ({
           <span>{formatDate(course.created_at)}</span>
         </div>
 
-        {/* Status indicator */}
         {!course.is_active && (
           <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
             <span className="text-xs text-yellow-800">⚠️ Curso no disponible</span>
           </div>
         )}
       </div>
-    </div>
+    </Link>
   );
 };
