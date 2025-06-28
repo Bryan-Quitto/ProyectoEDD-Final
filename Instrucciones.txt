@@ -1,0 +1,87 @@
+Se requiere el diseño e implementación de un Sistema de Gestión y Análisis de Contenidos para una Plataforma Educativa en Línea, con un enfoque en la personalización de la experiencia del estudiante a través de un motor de recomendación basado en reglas.
+
+El sistema debe adherirse a una arquitectura full-stack moderna, utilizando las siguientes tecnologías clave:
+
+* Frontend:
+    * Framework: Vite con React.
+    * Lenguaje: TypeScript (.tsx) para componentes y lógica de interfaz.
+* Backend:
+    * Tecnología: Node.js (o un entorno de ejecución TypeScript compatible).
+    * Lenguaje: TypeScript (.ts) para toda la lógica del servidor, APIs y servicios.
+* Base de Datos:
+    * Proveedor: Supabase.
+    * Lenguaje: PostgreSQL para la definición del esquema y la manipulación de datos.
+
+### Objetivos y Funcionalidades Requeridas:
+
+1.  Representación y Persistencia de la Estructura Jerárquica del Contenido:
+    * Diseñar y persistir en Supabase (PostgreSQL) un modelo de datos que represente la jerarquía de contenidos de múltiples cursos. Esta estructura debe ser un árbol general, donde un `Curso` contiene `Módulos`, cada `Módulo` puede tener múltiples `Lecciones`, y cada `Lección` puede contener `Evaluaciones`.
+    * La persistencia debe asegurar la integridad y la escalabilidad del modelo de datos.
+
+2.  CRUD Robusto para Materiales del Curso:
+    * Implementar un conjunto completo de operaciones CRUD (Create, Read, Update, Delete) a través del backend (TypeScript) para la gestión de los materiales del curso.
+    * Esto incluye funcionalidades como:
+        * Subir nuevos contenidos (ej., archivos de video, documentos PDF, textos HTML) asociados a lecciones o evaluaciones.
+        * Eliminar contenidos existentes.
+        * Modificar identificadores y nombres de cursos, módulos, lecciones y evaluaciones.
+    * Estas operaciones deben ser accesibles desde el frontend React (TSX), interactuando con las APIs del backend.
+
+3.  Funcionalidad de Búsqueda Eficiente:
+    * Desarrollar una capacidad de búsqueda que permita a los usuarios (administradores, profesores, estudiantes) navegar y encontrar eficientemente cualquier elemento dentro de la estructura jerárquica del curso (cursos, módulos, lecciones, evaluaciones).
+    * La implementación debe considerar índices en PostgreSQL para optimizar el rendimiento de las consultas.
+
+4.  Motor de Recomendación Personalizado (Árbol Binario de Decisión):
+    * Implementar un sistema de recomendación que genere y utilice un árbol binario de decisión para guiar al estudiante hacia la siguiente lección o contenido más adecuado para su progreso.
+    * Este árbol debe ser construido o configurable basándose en un conjunto de condiciones binarias que evalúan el historial de interacción del estudiante. Las condiciones incluyen, pero no se limitan a:
+        * Puntaje de evaluación: (ej. `puntaje_final_evaluacion >= 70%`).
+        * Tiempo de permanencia: (ej. `tiempo_en_leccion > X minutos`).
+        * Completitud de recursos: (ej. `todos_los_recursos_revisados == true`).
+    * Cada regla de decisión dentro de este árbol implicará una ruta con al menos dos niveles de decisión encadenados (nodo principal con condición binaria, y subsiguientes nodos/acciones basadas en el resultado). El árbol evaluará una condición, y según el `true`/`false`, avanzará a otra condición o a una acción final de recomendación.
+    * La persistencia del árbol de decisión (o sus reglas de configuración) se puede manejar mediante archivos (ej., JSON, YAML) para facilitar su dinámica y actualización.
+
+### Detalles de Implementación de Reglas (Contexto para la IA):
+
+Las siguientes reglas son el pilar del motor de recomendación y deben ser interpretadas como las directrices para la construcción y operación del árbol binario de decisión:
+
+1.  Reglas para los Estados de Rendimiento del Usuario:
+    * Criterio: El puntaje final de la evaluación de un material (el más alto de hasta 3 intentos).
+    * Estados:
+        * Bajo Rendimiento: Puntaje final $< 70\%$.
+        * Medio Rendimiento: Puntaje final entre $70\%$ y $89\%$ (inclusive).
+        * Alto Rendimiento: Puntaje final entre $90\%$ y $100\%$ (inclusive).
+    * Lógica del Árbol: Este sub-árbol se ejecuta tras cada evaluación para actualizar el estado del usuario, que luego será una condición en el árbol de recomendación de contenidos.
+        * `¿Puntaje >= 90%?` -> Alto Rendimiento.
+        * `ELSE ¿Puntaje >= 70%?` -> Medio Rendimiento.
+        * `ELSE` -> Bajo Rendimiento.
+
+2.  Reglas para la Gestión de Intentos y Retroalimentación por Material de Estudio:
+    * Intentos: Máximo 3 intentos por evaluación. El puntaje final es el más alto de los intentos.
+    * Retroalimentación:
+        * Primer Intento (< 70%): Ofrecer material audiovisual de refuerzo inmediato.
+        * Segundo Intento (< 70%): Ofrecer opción de contactar a un profesor para sesión individualizada.
+    * Lógica del Árbol: Este sub-árbol guía las acciones y recursos ofrecidos *después de cada intento*, previo al cálculo del puntaje final.
+        * `¿Es Primer Intento?` -> `IF ¿Puntaje < 70%?` -> Ofrecer Refuerzo.
+        * `ELSE IF ¿Es Segundo Intento?` -> `IF ¿Puntaje < 70%?` -> Ofrecer Sesión con Profesor.
+        * `ELSE` -> Finalizar Intentos.
+
+3.  Reglas para el Desbloqueo de Nuevos Materiales de Estudio y Soporte Adicional:
+    * Prerrequisito: Para desbloquear el siguiente material, se requiere un puntaje final de $\ge 70\%$ en la evaluación del material precedente.
+    * Comportamiento según el Estado (Condición Clave para la Recomendación):
+        * Bajo Rendimiento:
+            * Si logra $\ge 70\%$ en la evaluación actual: Desbloquear materiales regulares del siguiente nivel.
+            * Si no logra $\ge 70\%$ en la evaluación actual: Desbloquear materiales de repaso/refuerzo; **no desbloquear** siguiente nivel.
+        * Medio Rendimiento: Desbloquear materiales regulares del siguiente nivel Y proporcionar material extra de revisión para el tema evaluado (sin re-evaluación).
+        * Alto Rendimiento: Desbloquear materiales avanzados/complementarios del siguiente nivel, además de los regulares.
+    * Lógica del Árbol: Este es el **árbol de recomendación principal**, que utilizará el estado del usuario (calculado por la Regla 1) y el puntaje final de la evaluación para determinar la siguiente acción de contenido.
+        * `¿Estado del Usuario == "Bajo Rendimiento"?` -> `IF ¿Puntaje Final Evaluación >= 70%?` -> Desbloquear Regular. `ELSE` -> Desbloquear Refuerzo.
+        * `ELSE IF ¿Estado del Usuario == "Medio Rendimiento"?` -> Desbloquear Regular Y Ofrecer Material Extra.
+        * `ELSE` (Estado "Alto Rendimiento") -> Desbloquear Avanzado Y Regular.
+
+### Consideraciones para el Desarrollo:
+
+* Modularidad y POO: El código debe ser altamente modular, siguiendo principios de Programación Orientada a Objetos para una base de código limpia, mantenible y extensible.
+* Documentación: Amplia documentación de código (JSDoc/TSDoc) y de arquitectura para facilitar la comprensión y el mantenimiento.
+* Experiencia de Usuario (UI/UX): Aunque no es un requisito estricto, una interfaz intuitiva en React/TSX que visualice la jerarquía de contenidos y facilite la interacción con el sistema de recomendación es altamente valorada.
+* Gestión de Datos: Considerar patrones de repositorio o servicios para la interacción con Supabase desde el backend, asegurando una capa de abstracción limpia.
+
+El objetivo es un sistema que no solo gestione eficientemente el contenido educativo, sino que también actúe como un tutor inteligente, guiando a cada estudiante por un camino de aprendizaje óptimo y personalizado.
