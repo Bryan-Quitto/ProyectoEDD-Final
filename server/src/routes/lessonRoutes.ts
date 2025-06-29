@@ -5,9 +5,9 @@ const router = Router();
 const lessonController = new LessonController();
 
 router.post('/', lessonController.createLesson);
-router.get('/:id', lessonController.getLessonById);
+router.get('/module/:moduleId', lessonController.getLessonsByModule);
 router.put('/:id', lessonController.updateLesson);
 router.delete('/:id', lessonController.deleteLesson);
-router.get('/by-module/:moduleId', lessonController.getLessonsByModule);
+router.get('/:id', lessonController.getLessonById);
 
 export default router;

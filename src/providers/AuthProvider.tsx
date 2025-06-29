@@ -1,30 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import type { ReactNode } from 'react';
+import React, { useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../services/supabase';
 import { AuthService } from '../services/authService';
 import { AuthContext } from '../context/AuthContext';
-import type { AuthContextType, User, CreateUserData } from '@plataforma-educativa/types';
+import type { AuthContextType, User, CreateUserData, ApiError } from '@plataforma-educativa/types';
+import type { AuthError } from '@supabase/supabase-js';
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // useEffect para manejar la autenticación inicial y los cambios
     useEffect(() => {
+        // 1. Verificamos la sesión al cargar la página por primera vez.
+        const checkUser = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (session?.user) {
+                const { data: profileData } = await AuthService.getProfile(session.user.id);
+                setUser(profileData || null);
+            }
+            // Solo cuando todo ha terminado, dejamos de cargar.
+            setLoading(false);
+        };
+        
+        checkUser();
+
+        // 2. Escuchamos solo para cambios FUTUROS (logout).
         const { data: authListener } = supabase.auth.onAuthStateChange(
-            async (_event, session) => {
-                const supabaseUser = session?.user;
-                if (supabaseUser) {
-                    // Paso 1: Establecer un usuario básico inmediatamente
-                    setUser(prevUser => ({
-                        ...prevUser,
-                        id: supabaseUser.id,
-                        email: supabaseUser.email || '',
-                    } as User));
-                } else {
+            (event, session) => {
+                if (event === 'SIGNED_OUT') {
                     setUser(null);
                 }
-                setLoading(false);
             }
         );
 
@@ -32,30 +37,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             authListener?.subscription.unsubscribe();
         };
     }, []);
-
-    // useEffect para enriquecer el perfil del usuario cuando tengamos su ID
-    useEffect(() => {
-        // Solo se ejecuta si tenemos un usuario básico pero sin el nombre completo
-        if (user && user.id && !user.full_name) {
-            AuthService.getProfile(user.id).then(({ data: profileData }) => {
-                if (profileData) {
-                    setUser(profileData); // Reemplaza el usuario básico con el perfil completo
-                }
-            });
+    
+    // 3. El signIn ahora maneja su propio estado.
+    const signIn = async (email: string, password: string): Promise<{ error: AuthError | null }> => {
+        const { data, error } = await AuthService.signIn(email, password);
+        if (data.user) {
+            const { data: profileData } = await AuthService.getProfile(data.user.id);
+            setUser(profileData || null);
         }
-    }, [user]);
-
-    const signIn = async (email: string, password: string) => {
-        return AuthService.signIn(email, password);
+        return { error };
     };
 
-    const signUp = async (userData: CreateUserData) => {
+    const signUp = async (userData: CreateUserData): Promise<{ error: ApiError | null }> => {
         return AuthService.signUp(userData);
     };
 
-    const signOut = async () => {
+    const signOut = async (): Promise<void> => {
         await AuthService.signOut();
-        setUser(null);
+        // El listener se encargará de poner el usuario a null.
     };
 
     const value: AuthContextType = {

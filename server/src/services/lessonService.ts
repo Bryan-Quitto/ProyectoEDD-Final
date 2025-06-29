@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase';
+import { supabase } from '../config/supabaseAdmin';
 import type { Lesson, ApiResponse } from '@plataforma-educativa/types';
 
 type CreateLessonData = Omit<Lesson, 'id' | 'created_at' | 'updated_at' | 'evaluations' | 'is_completed_by_user'>;

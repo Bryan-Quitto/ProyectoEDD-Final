@@ -1,23 +1,47 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { BookOpen, CheckCircle, BarChart2 } from 'lucide-react';
-import { CourseList } from '../components/course/CourseList';
+import { CourseCard } from '../components/course/CourseCard';
+import { Spinner } from '../components/ui/Spinner';
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert';
+import { CourseService } from '../services/courseService';
+import type { Course } from '@plataforma-educativa/types';
 import { RecommendationPanel } from '../components/recommendation/RecommendationPanel';
 
 const StudentDashboard: React.FC = () => {
   const { user } = useAuth();
+  const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user?.id) {
+      setLoading(true);
+      setError(null);
+      CourseService.getEnrolledCourses(user.id)
+        .then(response => {
+          if (response.data) {
+            setEnrolledCourses(response.data);
+          } else {
+            setError(response.error?.message || 'No se pudieron cargar tus cursos.');
+          }
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    }
+  }, [user?.id]);
+
+  if (!user) {
+    return null;
+  }
 
   const stats = [
-    { name: 'Cursos en Progreso', stat: '2', icon: BookOpen },
+    { name: 'Cursos en Progreso', stat: loading ? '...' : enrolledCourses.length, icon: BookOpen },
     { name: 'Lecciones Completadas', stat: '17', icon: CheckCircle },
     { name: 'Puntaje Promedio', stat: '85%', icon: BarChart2 },
   ];
-
-  // Si el usuario aún no ha cargado, podemos mostrar un esqueleto o un mensaje.
-  if (!user) {
-    return <div>Cargando información del usuario...</div>;
-  }
 
   return (
     <div className="space-y-8">
@@ -44,11 +68,27 @@ const StudentDashboard: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
-          {/* No pasamos props, el componente es autónomo */}
-          <CourseList />
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Tus Cursos</h2>
+          {loading ? (
+            <div className="text-center p-10"><Spinner size="lg" /></div>
+          ) : error ? (
+            <Alert variant="destructive">
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : enrolledCourses.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {enrolledCourses.map(course => (
+                <CourseCard key={course.id} course={course} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-gray-500 bg-gray-50 p-8 rounded-lg">
+              Aún no estás inscrito en ningún curso. ¡Explora el catálogo para empezar!
+            </p>
+          )}
         </div>
         <div>
-          {/* Pasamos solo la prop que necesita: studentId */}
           <RecommendationPanel studentId={user.id} />
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase';
+import { supabase } from '../config/supabaseAdmin';
 import type { Evaluation, ApiResponse } from '@plataforma-educativa/types';
 
 type CreateEvaluationData = Omit<Evaluation, 'id' | 'created_at' | 'updated_at'>;

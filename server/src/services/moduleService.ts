@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase';
+import { supabase } from '../config/supabaseAdmin';
 import type { Module } from '@plataforma-educativa/types';
 
 type CreateModuleData = Omit<Module, 'id' | 'created_at' | 'updated_at' | 'lessons'>;

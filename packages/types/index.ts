@@ -3,6 +3,11 @@ export interface User {
   email: string;
   full_name: string;
   role: 'student' | 'teacher' | 'admin';
+  date_of_birth?: string | null;
+  national_id?: string | null;
+  phone_number?: string | null;
+  avatar_url?: string | null;
+  bio?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -125,6 +130,9 @@ export interface CreateUserData {
   password?: string;
   full_name: string;
   role: 'student' | 'teacher' | 'admin';
+  date_of_birth?: string | null;
+  national_id?: string | null;
+  phone_number?: string | null;
 }
 
 export interface ApiError {

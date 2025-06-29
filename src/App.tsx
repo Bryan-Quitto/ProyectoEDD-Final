@@ -2,14 +2,8 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { Spinner } from './components/ui/Spinner';
-
-// Layouts
 import MainLayout from './components/layout/MainLayout';
-
-// Componentes de Autenticación
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
-
-// Páginas
 import LoginPage from './pages/LoginPage';
 import StudentDashboard from './pages/StudentDashboard';
 import CourseCatalogPage from './pages/CourseCatalogPage';
@@ -30,49 +24,49 @@ function App() {
     );
   }
 
+  if (!user) {
+    return (
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
+  }
+
   return (
-    <Routes>
-      <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" replace />} />
-      
-      <Route
-        path="/*"
-        element={
-          user ? (
-            <MainLayout>
-              <Routes>
-                {/* --- RUTAS PARA TODOS LOS USUARIOS LOGUEADOS --- */}
-                <Route path="/dashboard" element={<StudentDashboard />} />
-                <Route path="/courses" element={<CourseCatalogPage />} />
-                <Route path="/course/:courseId" element={<CourseDetailPage />} />
-                <Route path="/course/:courseId/lesson/:lessonId" element={<LessonViewPage />} />
+    <MainLayout>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            user.role === 'admin' || user.role === 'teacher'
+              ? <Navigate to="/admin/dashboard" replace />
+              : <Navigate to="/dashboard" replace />
+          }
+        />
+        
+        <Route path="/dashboard" element={<StudentDashboard />} />
+        <Route path="/courses" element={<CourseCatalogPage />} />
+        <Route path="/course/:courseId" element={<CourseDetailPage />} />
+        <Route path="/course/:courseId/lesson/:lessonId" element={<LessonViewPage />} />
 
-                {/* --- RUTAS PROTEGIDAS PARA ADMIN/TEACHER --- */}
-                <Route element={<ProtectedRoute allowedRoles={['admin', 'teacher']} />}>
-                  <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
-                  <Route path="/admin/course/create" element={<CourseBuilderPage mode="create" />} />
-                  <Route path="/admin/course/edit/:courseId" element={<CourseBuilderPage mode="edit" />} />
-                </Route>
-
-                {/* --- REDIRECCIÓN PRINCIPAL --- */}
-                <Route 
-                  path="/" 
-                  element={
-                    user.role === 'admin' || user.role === 'teacher' 
-                      ? <Navigate to="/admin/dashboard" replace /> 
-                      : <Navigate to="/dashboard" replace />
-                  } 
-                />
-                
-                {/* Ruta para cualquier otra URL no encontrada */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </MainLayout>
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
-    </Routes>
+        <Route element={<ProtectedRoute allowedRoles={['admin', 'teacher']} />}>
+          <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+          <Route path="/admin/course/create" element={<CourseBuilderPage mode="create" />} />
+          <Route path="/admin/course/edit/:courseId" element={<CourseBuilderPage mode="edit" />} />
+        </Route>
+        
+        <Route
+          path="*"
+          element={
+            <Navigate 
+              to={user.role === 'admin' || user.role === 'teacher' ? "/admin/dashboard" : "/dashboard"} 
+              replace 
+            />
+          }
+        />
+      </Routes>
+    </MainLayout>
   );
 }
 

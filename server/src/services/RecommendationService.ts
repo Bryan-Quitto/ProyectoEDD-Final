@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase';
+import { supabase } from '../config/supabaseAdmin';
 import { DecisionTree } from '../recommendation/DecisionTree';
 import type {
   PerformanceState,

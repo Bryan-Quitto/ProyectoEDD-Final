@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { supabase } from '../config/supabase';
+import { supabase } from '../config/supabaseAdmin';
 import type { Course, ApiResponse, PaginatedResponse, Module } from '@plataforma-educativa/types';
 
 export class CourseController {
