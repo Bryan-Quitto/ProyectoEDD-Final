@@ -1,17 +1,17 @@
 import { supabase } from "./supabase";
-import type { Course, CourseDetails, CourseFilters, ApiResponse } from "@plataforma-educativa/types";
+import type { Course, CourseDetails, CourseFilters, ApiResponse, PaginatedResponse } from "@plataforma-educativa/types";
 import axios from 'axios';
 
 type PartialCourse = Pick<Course, 'id' | 'title' | 'is_active' | 'created_at'>;
 
 const API_BASE_URL = '/api';
 
-const getAllCourses = async (filters: CourseFilters = {}): Promise<ApiResponse<Course[]>> => {
+const getAllCourses = async (filters: CourseFilters = {}): Promise<ApiResponse<PaginatedResponse<Course>>> => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/courses`, { params: filters });
-      return { data: response.data.data, error: null };
+      const response = await axios.get(`/api/courses`, { params: filters });
+      return response.data;
     } catch (error: any) {
-      const message = error.response?.data?.message || "Error al obtener los cursos";
+      const message = error.response?.data?.error?.message || "Error al obtener los cursos";
       return { data: null, error: { message } };
     }
 };
@@ -21,7 +21,7 @@ const getCourseById = async (id: string): Promise<ApiResponse<CourseDetails>> =>
       const response = await axios.get(`${API_BASE_URL}/courses/${id}`);
       return { data: response.data.data, error: null };
     } catch (error: any) {
-      const message = error.response?.data?.message || "Error al obtener el detalle del curso";
+      const message = error.response?.data?.error?.message || "Error al obtener el detalle del curso";
       return { data: null, error: { message } };
     }
 };
@@ -29,7 +29,7 @@ const getCourseById = async (id: string): Promise<ApiResponse<CourseDetails>> =>
 const getCoursesByTeacher = async (teacherId: string): Promise<ApiResponse<PartialCourse[]>> => {
   const { data, error } = await supabase
     .from('courses')
-    .select('id, title, is_active, created_at')
+    .select('*')
     .eq('teacher_id', teacherId)
     .order('created_at', { ascending: false });
 
@@ -44,12 +44,18 @@ const getEnrolledCourses = async (studentId: string): Promise<ApiResponse<Course
     try {
       const { data, error } = await supabase
         .from('enrollments')
-        .select('*, courses(*)')
+        .select(`
+          courses (
+            *
+          )
+        `)
         .eq('student_id', studentId);
       
       if (error) throw error;
       
-      const courses = data ? data.map(enrollment => enrollment.courses).filter(Boolean) as Course[] : [];
+      const nestedCourses = data?.map(enrollment => enrollment.courses) ?? [];
+      const courses: Course[] = nestedCourses.flat().filter(Boolean) as Course[];
+      
       return { data: courses, error: null };
 
     } catch (error: any) {
@@ -64,7 +70,7 @@ const createCourse = async (courseData: CourseFormData): Promise<ApiResponse<Cou
       const response = await axios.post(`${API_BASE_URL}/courses`, courseData);
       return { data: response.data.data, error: null };
     } catch (error: any) {
-      const message = error.response?.data?.message || "Error al crear el curso";
+      const message = error.response?.data?.error?.message || "Error al crear el curso";
       return { data: null, error: { message } };
     }
 };
@@ -74,7 +80,7 @@ const updateCourse = async (id: string, courseData: Partial<CourseFormData>): Pr
       const response = await axios.put(`${API_BASE_URL}/courses/${id}`, courseData);
       return { data: response.data.data, error: null };
     } catch (error: any) {
-      const message = error.response?.data?.message || "Error al actualizar el curso";
+      const message = error.response?.data?.error?.message || "Error al actualizar el curso";
       return { data: null, error: { message } };
     }
 };

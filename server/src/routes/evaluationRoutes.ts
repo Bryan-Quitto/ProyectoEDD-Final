@@ -2,12 +2,12 @@ import { Router } from 'express';
 import { EvaluationController } from '../controllers/evaluationController';
 
 const router = Router();
-const evaluationController = new EvaluationController();
 
-router.post('/', evaluationController.createEvaluation);
-router.get('/:id', evaluationController.getEvaluationById);
-router.put('/:id', evaluationController.updateEvaluation);
-router.delete('/:id', evaluationController.deleteEvaluation);
-router.get('/by-lesson/:lessonId', evaluationController.getEvaluationsByLesson);
+router.post('/:evaluationId/submit', EvaluationController.submitAttempt);
+router.post('/', EvaluationController.createEvaluation);
+router.get('/:id', EvaluationController.getEvaluationById);
+router.put('/:id', EvaluationController.updateEvaluation);
+router.delete('/:id', EvaluationController.deleteEvaluation);
+router.get('/by-lesson/:lessonId', EvaluationController.getEvaluationsByLesson);
 
 export default router;

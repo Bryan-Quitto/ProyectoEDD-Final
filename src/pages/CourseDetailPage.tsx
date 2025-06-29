@@ -1,62 +1,74 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useLocation } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { CourseService } from '../services/courseService';
-import type { CourseDetails, Course, Module, Lesson } from '@plataforma-educativa/types';
+import { EnrollmentService } from '../services/enrollmentService';
+import { useAuth } from '../hooks/useAuth';
+import type { CourseDetails, Module } from '@plataforma-educativa/types';
 import { Spinner } from '../components/ui/Spinner';
-import { Alert } from '../components/ui/Alert';
+import { Alert, AlertTitle, AlertDescription } from '../components/ui/Alert';
+import { Button } from '../components/ui/Button';
 import { ModuleAccordion } from '../components/course/ModuleAccordion';
+import { Clock, BarChart, BookUser } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const CourseDetailPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
-  const location = useLocation();
-  
-  const initialCourse = location.state?.course as Course | null;
+  const { user } = useAuth();
   
   const [course, setCourse] = useState<CourseDetails | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isEnrolled, setIsEnrolled] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchCourseDetails = async () => {
-      if (!courseId) {
-        setError("ID del curso no especificado.");
-        setLoading(false);
-        return;
-      }
+    if (!courseId || !user) return;
 
-      setLoading(true);
-      setError(null);
+    setIsLoading(true);
+    setError(null);
 
-      try {
-        const { data, error: apiError } = await CourseService.getCourseById(courseId);
-        
-        if (apiError) {
-          throw new Error(apiError.message || 'Error en la respuesta del servidor.');
-        }
+    const fetchCourseData = CourseService.getCourseById(courseId);
+    const fetchEnrolledCourses = CourseService.getEnrolledCourses(user.id);
 
-        if (data) {
-          setCourse(data as CourseDetails);
+    Promise.all([fetchCourseData, fetchEnrolledCourses])
+      .then(([courseResponse, enrolledResponse]) => {
+        if (courseResponse.data) {
+          setCourse(courseResponse.data);
         } else {
-          setError('No se encontró el curso especificado.');
+          throw new Error(courseResponse.error?.message || 'No se pudo cargar el curso.');
         }
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-            setError(err.message);
+
+        if (enrolledResponse.data) {
+          const isUserEnrolled = enrolledResponse.data.some(c => c.id === courseId);
+          setIsEnrolled(isUserEnrolled);
         } else {
-            setError('No se pudo cargar la información del curso. Por favor, inténtalo de nuevo.');
+          throw new Error(enrolledResponse.error?.message || 'No se pudo verificar la inscripción.');
         }
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
+      })
+      .catch((err) => {
+        setError(err.message);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [courseId, user]);
+  
+  const handleEnroll = async () => {
+    if (!courseId || !user) return;
 
-    fetchCourseDetails();
-  }, [courseId]);
+    const promise = EnrollmentService.enrollInCourse(user.id, courseId);
 
-  const displayCourse = course || initialCourse;
+    toast.promise(promise, {
+      loading: 'Inscribiéndote...',
+      success: (res) => {
+        if (res.error) throw new Error(res.error.message);
+        setIsEnrolled(true);
+        return '¡Inscripción exitosa! Ya puedes empezar a aprender.';
+      },
+      error: (err) => err.message,
+    });
+  };
 
-  if (loading && !displayCourse) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <Spinner size="lg" />
@@ -67,37 +79,63 @@ const CourseDetailPage: React.FC = () => {
 
   if (error) {
     return (
-        <div className="container mx-auto px-4 py-8">
-            <Alert variant="destructive">{error}</Alert>
-        </div>
+      <div className="container mx-auto px-4 py-8">
+        <Alert variant="destructive">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      </div>
     );
   }
 
-  if (!displayCourse) {
+  if (!course) {
     return (
-        <div className="container mx-auto px-4 py-8">
-            <Alert>Curso no encontrado.</Alert>
-        </div>
+      <div className="container mx-auto px-4 py-8">
+        <Alert>Curso no encontrado.</Alert>
+      </div>
     );
   }
   
   const firstLessonId = course?.modules?.[0]?.lessons?.[0]?.id;
 
+  const renderEnrollmentButton = () => {
+    if (user?.role !== 'student') return null;
+
+    if (isEnrolled) {
+        if (firstLessonId) {
+             return (
+                <Button size="lg" asChild className="w-full">
+                    <Link to={`/course/${course.id}/lesson/${firstLessonId}`}>
+                        Continuar Aprendizaje
+                    </Link>
+                </Button>
+             )
+        }
+        return (
+            <Button size="lg" disabled className="w-full">Contenido no disponible</Button>
+        )
+    }
+    
+    return (
+        <Button size="lg" onClick={handleEnroll} className="w-full">
+            Inscribirme ahora
+        </Button>
+    )
+  }
+
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <header className="mb-8 p-6 bg-white rounded-lg shadow-sm">
-          <Link to="/courses" className="text-sm text-blue-600 hover:underline mb-4 inline-block">← Volver al catálogo</Link>
-          <h1 className="text-3xl lg:text-4xl font-bold text-gray-900">{displayCourse.title}</h1>
-          <p className="text-lg text-gray-600 mt-2">{displayCourse.description}</p>
+          <Link to="/dashboard" className="text-sm text-blue-600 hover:underline mb-4 inline-block">← Volver al Dashboard</Link>
+          <h1 className="text-3xl lg:text-4xl font-bold text-gray-900">{course.title}</h1>
+          <p className="text-lg text-gray-600 mt-2">{course.description}</p>
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-500">
-            <span>
-              Por <span className="font-semibold text-gray-700">{displayCourse.instructor_name || 'Profesor Desconocido'}</span>
-            </span>
+            <div className="flex items-center"><BookUser className="h-4 w-4 mr-1.5" /><span>{course.instructor_name || 'Profesor Desconocido'}</span></div>
             <span className="hidden md:inline">•</span>
-            <span>Dificultad: <span className="font-semibold text-gray-700 capitalize">{displayCourse.difficulty_level}</span></span>
+            <div className="flex items-center"><BarChart className="h-4 w-4 mr-1.5" /><span>Nivel {course.difficulty_level}</span></div>
             <span className="hidden md:inline">•</span>
-            <span>Duración estimada: <span className="font-semibold text-gray-700">{displayCourse.estimated_duration} min.</span></span>
+            <div className="flex items-center"><Clock className="h-4 w-4 mr-1.5" /><span>{course.estimated_duration} horas</span></div>
           </div>
         </header>
 
@@ -105,62 +143,38 @@ const CourseDetailPage: React.FC = () => {
           <main className="lg:col-span-2">
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <h2 className="text-2xl font-semibold text-gray-800 mb-6">Contenido del Curso</h2>
-              <div className="space-y-3">
-                {loading && !course && (
-                    <div className="flex justify-center items-center p-8">
-                        <Spinner />
-                        <span className="ml-2">Cargando módulos...</span>
-                    </div>
-                )}
-                {course && course.modules && course.modules.length > 0 ? (
-                  course.modules
-                    .sort((a: Module, b: Module) => a.order_index - b.order_index)
-                    .map((module) => (
-                      <ModuleAccordion key={module.id} module={module} courseId={course!.id} />
-                    ))
-                ) : (
-                  !loading && (
+              {isEnrolled || user?.role !== 'student' ? (
+                <div className="space-y-3">
+                  {course.modules && course.modules.length > 0 ? (
+                    course.modules
+                      .sort((a: Module, b: Module) => a.order_index - b.order_index)
+                      .map((module) => (
+                        <ModuleAccordion key={module.id} module={module} courseId={course!.id} />
+                      ))
+                  ) : (
                     <div className="bg-gray-100 p-6 rounded-lg text-center text-gray-500">
-                        <p>El contenido de este curso estará disponible próximamente.</p>
+                      <p>El contenido de este curso estará disponible próximamente.</p>
                     </div>
-                  )
-                )}
-              </div>
+                  )}
+                </div>
+              ) : (
+                 <div className="text-center p-8 bg-white rounded-md border-2 border-dashed">
+                    <p className="text-gray-600 font-medium">Inscríbete en el curso para ver el contenido completo.</p>
+                </div>
+              )}
             </div>
           </main>
 
           <aside>
             <div className="bg-white p-6 rounded-lg shadow-sm sticky top-24">
-              {displayCourse.image_url ? (
-                  <img src={displayCourse.image_url} alt={displayCourse.title} className="rounded-lg mb-4 w-full h-48 object-cover" />
+              {course.image_url ? (
+                  <img src={course.image_url} alt={course.title} className="rounded-lg mb-4 w-full h-48 object-cover" />
               ) : (
                 <div className="w-full h-48 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-lg flex items-center justify-center mb-4">
                   <span className="text-white text-6xl">🎓</span>
                 </div>
               )}
-              {firstLessonId ? (
-                <Link
-                  to={`/courses/${displayCourse.id}/lessons/${firstLessonId}`}
-                  className="w-full text-center inline-block bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-300 shadow-md hover:shadow-lg"
-                >
-                  Empezar Curso
-                </Link>
-              ) : (
-                 <button
-                  disabled
-                  className="w-full text-center inline-block bg-gray-400 text-white font-bold py-3 px-4 rounded-lg cursor-not-allowed"
-                >
-                  Contenido no disponible
-                </button>
-              )}
-              <div className="mt-6 text-sm">
-                <h3 className="font-semibold text-gray-700 mb-3">Detalles del curso:</h3>
-                <ul className="space-y-2 text-gray-600">
-                  <li className="flex justify-between"><span>Lecciones:</span> <strong>{course?.modules?.reduce((acc: number, m: Module) => acc + (m.lessons?.length || 0), 0) || '...'}</strong></li>
-                  <li className="flex justify-between"><span>Módulos:</span> <strong>{course?.modules?.length || '...'}</strong></li>
-                  <li className="flex justify-between"><span>Evaluaciones:</span> <strong>{course?.modules?.reduce((acc: number, m: Module) => acc + (m.lessons?.reduce((lAcc: number, l: Lesson) => lAcc + (l.evaluations?.length || 0), 0) || 0), 0) || '...'}</strong></li>
-                </ul>
-              </div>
+              {renderEnrollmentButton()}
             </div>
           </aside>
         </div>

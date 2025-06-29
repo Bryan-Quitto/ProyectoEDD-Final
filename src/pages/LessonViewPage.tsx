@@ -1,12 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { CourseService } from '../services/courseService';
 import { lessonService } from '../services/lessonService';
-import type { Lesson, CourseDetails, Module } from '@plataforma-educativa/types';
+import type { Lesson, CourseDetails, Module, EvaluationAttempt, Evaluation } from '@plataforma-educativa/types';
 import { Spinner } from '../components/ui/Spinner';
 import { Alert } from '../components/ui/Alert';
 import { Button } from '../components/ui/Button';
 import { ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { QuizRunner } from '../components/quiz/QuizRunner';
+import { QuizResult } from '../components/quiz/QuizResult';
 
 const LessonViewPage: React.FC = () => {
   const { courseId, lessonId } = useParams<{ courseId: string; lessonId: string }>();
@@ -16,7 +19,7 @@ const LessonViewPage: React.FC = () => {
   const [course, setCourse] = useState<CourseDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [navLinks, setNavLinks] = useState<{ prev: string | null; next: string | null }>({ prev: null, next: null });
+  const [lastAttempt, setLastAttempt] = useState<EvaluationAttempt | null>(null);
 
   useEffect(() => {
     const fetchLessonData = async () => {
@@ -29,6 +32,7 @@ const LessonViewPage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
+        setLastAttempt(null);
 
         const [lessonResponse, courseResponse] = await Promise.all([
           lessonService.getLessonById(lessonId),
@@ -38,25 +42,13 @@ const LessonViewPage: React.FC = () => {
         if (lessonResponse.data) {
           setLesson(lessonResponse.data);
         } else {
-          throw new Error('Lección no encontrada.');
+          throw new Error(lessonResponse.error?.message || 'Lección no encontrada.');
         }
         
-        const courseData = courseResponse.data as CourseDetails | null;
-
-        if (courseData) {
-          setCourse(courseData);
-          const allLessons: Lesson[] = courseData.modules
-            ?.flatMap((m: Module) => m.lessons || [])
-            .sort((a: Lesson, b: Lesson) => a.order_index - b.order_index) || [];
-
-          const currentIndex = allLessons.findIndex(l => l.id === lessonId);
-          
-          setNavLinks({
-            prev: currentIndex > 0 ? allLessons[currentIndex - 1].id : null,
-            next: currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1].id : null,
-          });
+        if (courseResponse.data) {
+          setCourse(courseResponse.data);
         } else {
-          throw new Error('Curso no encontrado.');
+          throw new Error(courseResponse.error?.message || 'Curso no encontrado.');
         }
 
       } catch (err: unknown) {
@@ -65,7 +57,6 @@ const LessonViewPage: React.FC = () => {
         } else {
             setError('Error al cargar el contenido.');
         }
-        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -73,6 +64,35 @@ const LessonViewPage: React.FC = () => {
 
     fetchLessonData();
   }, [lessonId, courseId]);
+
+  const { prevLessonId, nextLessonId } = useMemo(() => {
+      if (!course || !lessonId) return { prevLessonId: null, nextLessonId: null };
+      
+      const allLessons = course.modules
+        ?.flatMap((m: Module) => m.lessons || [])
+        .sort((a: Lesson, b: Lesson) => a.order_index - b.order_index) || [];
+
+      const currentIndex = allLessons.findIndex(l => l.id === lessonId);
+      if (currentIndex === -1) return { prevLessonId: null, nextLessonId: null };
+      
+      return {
+          prevLessonId: currentIndex > 0 ? allLessons[currentIndex - 1].id : null,
+          nextLessonId: currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1].id : null,
+      };
+  }, [course, lessonId]);
+  
+  const handleQuizComplete = (attempt: EvaluationAttempt) => {
+    setLastAttempt(attempt);
+  };
+  
+  const handleContinue = () => {
+    if(nextLessonId) {
+        navigate(`/course/${courseId}/lesson/${nextLessonId}`);
+    } else {
+        toast('¡Felicidades! Has completado el curso.', { icon: '🎉' });
+        navigate(`/course/${courseId}`);
+    }
+  };
 
   if (loading) {
     return (
@@ -99,8 +119,11 @@ const LessonViewPage: React.FC = () => {
   }
 
   const renderContent = () => {
-    if (!lesson.content_url && lesson.content) {
-      return <div className="prose lg:prose-xl max-w-none" dangerouslySetInnerHTML={{ __html: lesson.content }} />;
+    if (lesson.lesson_type === 'quiz' && lesson.evaluation) {
+      if (lastAttempt) {
+        return <QuizResult attempt={lastAttempt} onNext={handleContinue} />;
+      }
+      return <QuizRunner evaluation={lesson.evaluation as Evaluation} onQuizComplete={handleQuizComplete} />;
     }
     
     if (lesson.lesson_type === 'video' && lesson.content_url && lesson.content_url.includes('youtube.com')) {
@@ -109,19 +132,16 @@ const LessonViewPage: React.FC = () => {
         if (!videoId) throw new Error("URL de YouTube no válida.");
         return (
           <div className="relative" style={{ paddingTop: '56.25%' }}>
-            <iframe 
-              src={`https://www.youtube.com/embed/${videoId}`} 
-              title={lesson.title} 
-              frameBorder="0" 
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-              allowFullScreen
-              className="absolute top-0 left-0 w-full h-full rounded-lg"
-            ></iframe>
+            <iframe src={`https://www.youtube.com/embed/${videoId}`} title={lesson.title} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen className="absolute top-0 left-0 w-full h-full rounded-lg"></iframe>
           </div>
         );
       } catch {
          return <Alert variant="destructive">La URL del video de YouTube no es válida.</Alert>
       }
+    }
+    
+    if (!lesson.content_url && lesson.content) {
+      return <div className="prose lg:prose-xl max-w-none" dangerouslySetInnerHTML={{ __html: lesson.content }} />;
     }
 
     if (lesson.content_url) {
@@ -142,7 +162,7 @@ const LessonViewPage: React.FC = () => {
     <div className="bg-gray-100 min-h-screen py-8">
       <div className="container mx-auto px-4">
         <div className="mb-6">
-          <Link to={`/courses/${courseId}`} className="text-sm text-blue-600 hover:underline">
+          <Link to={`/course/${courseId}`} className="text-sm text-blue-600 hover:underline">
             ← Volver a {course.title}
           </Link>
         </div>
@@ -156,35 +176,35 @@ const LessonViewPage: React.FC = () => {
           <div className="mb-8 min-h-[300px]">
               {renderContent()}
           </div>
+          
+          {lesson.lesson_type !== 'quiz' && (
+            <footer className="flex flex-col sm:flex-row justify-between items-center pt-4 border-t mt-8">
+              <Button
+                onClick={() => prevLessonId && navigate(`/course/${courseId}/lesson/${prevLessonId}`)}
+                disabled={!prevLessonId}
+                variant="secondary"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" /> Anterior
+              </Button>
 
-          <footer className="flex flex-col sm:flex-row justify-between items-center pt-4 border-t mt-8">
-            <Button
-              onClick={() => navLinks.prev && navigate(`/courses/${courseId}/lessons/${navLinks.prev}`)}
-              disabled={!navLinks.prev}
-              variant="secondary"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" /> Anterior
-            </Button>
+              <Button
+                onClick={handleContinue}
+                variant="primary"
+                className="my-4 sm:my-0"
+              >
+                <CheckCircle className="mr-2 h-4 w-4" />
+                {nextLessonId ? 'Completar y Siguiente' : 'Finalizar Lección'}
+              </Button>
 
-            <Button
-              onClick={() => {
-                // Lógica para marcar como completada
-              }}
-              variant="primary"
-              className="my-4 sm:my-0"
-            >
-              <CheckCircle className="mr-2 h-4 w-4" />
-              Marcar como completada
-            </Button>
-
-            <Button
-              onClick={() => navLinks.next && navigate(`/courses/${courseId}/lessons/${navLinks.next}`)}
-              disabled={!navLinks.next}
-              variant="secondary"
-            >
-              Siguiente <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </footer>
+              <Button
+                onClick={() => nextLessonId && navigate(`/course/${courseId}/lesson/${nextLessonId}`)}
+                disabled={!nextLessonId}
+                variant="secondary"
+              >
+                Siguiente <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </footer>
+          )}
         </main>
       </div>
     </div>

@@ -5,6 +5,9 @@ import recommendationRoutes from './recommendationRoutes';
 import moduleRoutes from './moduleRoutes';
 import lessonRoutes from './lessonRoutes'; 
 import evaluationRoutes from './evaluationRoutes';
+import performanceRoutes from './performanceRoutes';
+import enrollmentRoutes from './enrollmentRoutes';
+import userRoutes from './userRoutes';
 
 const router = Router();
 
@@ -14,5 +17,8 @@ router.use('/recommendations', recommendationRoutes);
 router.use('/modules', moduleRoutes);
 router.use('/lessons', lessonRoutes);
 router.use('/evaluations', evaluationRoutes);
+router.use('/performance', performanceRoutes);
+router.use('/enrollments', enrollmentRoutes);
+router.use('/users', userRoutes);
 
 export default router;

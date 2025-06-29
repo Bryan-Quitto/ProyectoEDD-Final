@@ -1,80 +1,69 @@
 import { ApiResponse, Lesson } from '@plataforma-educativa/types';
-import { supabase } from './supabase';
 
-export type CreateLessonData = {
-  title: string;
-  module_id: string;
-  order_index: number;
-  lesson_type: 'video' | 'text' | 'interactive' | 'quiz';
-  estimated_duration: number;
-  content?: string | null;
-  is_active?: boolean;
-};
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
-export type UpdateLessonData = Partial<Omit<CreateLessonData, 'module_id'>>;
+export type CreateLessonData = Omit<Lesson, 'id' | 'created_at' | 'updated_at' | 'evaluations' | 'is_completed_by_user'>;
+export type UpdateLessonData = Partial<CreateLessonData>;
+
+async function fetchApi<T>(url: string, options?: RequestInit): Promise<ApiResponse<T>> {
+  try {
+    const response = await fetch(url, options);
+        console.log(`[SERVICE-FE] Respuesta cruda de ${url}:`, { status: response.status, statusText: response.statusText });
+    const result = await response.json();
+
+    if (!response.ok) {
+            console.error("[SERVICE-FE] Error en la respuesta del servidor:", result);
+      return { data: null, error: { message: result.message || 'Ocurrió un error en el servidor' } };
+    }
+    
+    if(result.error) {
+             console.error("[SERVICE-FE] Error de negocio en la respuesta:", result.error);
+
+       return { data: null, error: result.error };
+    }
+
+    return { data: result.data || result, error: null };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'No se pudo conectar con el servidor';
+        console.error("[SERVICE-FE] Error en el fetch:", e);
+
+    return { data: null, error: { message } };
+  }
+}
 
 export const lessonService = {
-  async getLessonsByModule(moduleId: string): Promise<ApiResponse<Lesson[]>> {
-    try {
-      const { data, error } = await supabase
-        .from('lessons')
-        .select('*')
-        .eq('module_id', moduleId)
-        .order('order_index', { ascending: true });
-
-      if (error) throw error;
-      return { data: data || [], error: null };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Error al obtener las lecciones';
-      return { data: null, error: { message } };
-    }
+  getLessonById(id: string): Promise<ApiResponse<Lesson>> {
+    return fetchApi<Lesson>(`${API_URL}/lessons/${id}`);
+  },
+  
+  getLessonsByModule(moduleId: string): Promise<ApiResponse<Lesson[]>> {
+    return fetchApi<Lesson[]>(`${API_URL}/lessons/module/${moduleId}`);
   },
 
-  async createLesson(lessonData: CreateLessonData): Promise<ApiResponse<Lesson>> {
-    try {
-      const { data, error } = await supabase
-        .from('lessons')
-        .insert([lessonData])
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return { data, error: null };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Error al crear la lección';
-      return { data: null, error: { message } };
-    }
+  createLesson(lessonData: CreateLessonData): Promise<ApiResponse<Lesson>> {
+        console.log("[SERVICE-FE] createLesson llamado con:", lessonData);
+    return fetchApi<Lesson>(`${API_URL}/lessons`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(lessonData),
+    });
   },
 
-  async updateLesson(id: string, lessonData: UpdateLessonData): Promise<ApiResponse<Lesson>> {
-    try {
-      const { data, error } = await supabase
-        .from('lessons')
-        .update(lessonData)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return { data, error: null };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Error al actualizar la lección';
-      return { data: null, error: { message } };
-    }
+  updateLesson(id: string, lessonData: UpdateLessonData): Promise<ApiResponse<Lesson>> {
+    return fetchApi<Lesson>(`${API_URL}/lessons/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(lessonData),
+    });
   },
 
-  async deleteLesson(id: string): Promise<ApiResponse<boolean>> {
-    try {
-      const { error } = await supabase
-        .from('lessons')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      return { data: true, error: null };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Error al eliminar la lección';
-      return { data: null, error: { message, status: 500 } };
-    }
+  deleteLesson(id: string): Promise<ApiResponse<Lesson>> {
+    return fetchApi<Lesson>(`${API_URL}/lessons/${id}`, {
+      method: 'DELETE',
+    });
   },
 };

@@ -52,15 +52,26 @@ export interface Lesson {
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  evaluations?: Evaluation[];
+  evaluation?: Partial<Evaluation>;
   is_completed_by_user?: boolean;
+}
+
+export interface Enrollment {
+  id: number;
+  student_id: string;
+  course_id: string;
+  enrolled_at: string;
+  status: 'in_progress' | 'completed' | 'dropped';
 }
 
 export interface Question {
   id: string;
+  evaluation_id?: string;
   question_text: string;
   question_type: 'multiple_choice' | 'true_false' | 'short_answer';
   options?: string[];
+  correct_option?: number;
+  correct_options?: number[];
   points: number;
 }
 
@@ -123,6 +134,12 @@ export interface PerformanceState {
   last_activity: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface StudentStats {
+  coursesInProgress: number;
+  lessonsCompleted: number;
+  averageScore: number | null;
 }
 
 export interface CreateUserData {

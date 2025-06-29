@@ -2,12 +2,11 @@ import { Router } from 'express';
 import { LessonController } from '../controllers/lessonController';
 
 const router = Router();
-const lessonController = new LessonController();
 
-router.post('/', lessonController.createLesson);
-router.get('/module/:moduleId', lessonController.getLessonsByModule);
-router.put('/:id', lessonController.updateLesson);
-router.delete('/:id', lessonController.deleteLesson);
-router.get('/:id', lessonController.getLessonById);
+router.post('/', LessonController.createLesson);
+router.get('/module/:moduleId', LessonController.getLessonsByModule);
+router.put('/:id', LessonController.updateLesson);
+router.delete('/:id', LessonController.deleteLesson);
+router.get('/:id', LessonController.getLessonById);
 
 export default router;

@@ -40,7 +40,7 @@ export const ModuleAccordion: React.FC<ModuleAccordionProps> = ({ module, course
               .map((lesson: Lesson) => (
                 <li key={lesson.id}>
                   <NavLink
-                    to={`/courses/${courseId}/lessons/${lesson.id}`}
+                    to={`/course/${courseId}/lesson/${lesson.id}`}
                     className={({ isActive }) => 
                       `flex items-center justify-between p-4 text-sm hover:bg-gray-50 transition-colors ${
                         isActive ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'

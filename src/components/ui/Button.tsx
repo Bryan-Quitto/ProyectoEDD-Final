@@ -1,4 +1,5 @@
 import React, { forwardRef } from 'react';
+import { Slot } from '@radix-ui/react-slot';
 
 const buttonVariants = {
   variant: {
@@ -7,6 +8,7 @@ const buttonVariants = {
     destructive: 'bg-error text-white hover:bg-red-600',
     ghost: 'hover:bg-gray-100',
     link: 'text-primary underline-offset-4 hover:underline',
+    outline: 'border border-primary text-primary bg-transparent hover:bg-primary/10',
   },
   size: {
     default: 'h-10 px-4 py-2',
@@ -17,15 +19,17 @@ const buttonVariants = {
 };
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  asChild?: boolean;
   variant?: keyof typeof buttonVariants.variant;
   size?: keyof typeof buttonVariants.size;
   isLoading?: boolean;
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'primary', size = 'default', isLoading = false, children, ...props }, ref) => {
+  ({ className, variant = 'primary', size = 'default', asChild = false, isLoading = false, children, ...props }, ref) => {
+    const Comp = asChild ? Slot : 'button';
     return (
-      <button
+      <Comp
         className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50
           ${buttonVariants.variant[variant]}
           ${buttonVariants.size[size]}
@@ -35,12 +39,12 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={isLoading || props.disabled}
         {...props}
       >
-        {isLoading ? (
+        {isLoading && !asChild ? (
           <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
         ) : (
           children
         )}
-      </button>
+      </Comp>
     );
   }
 );

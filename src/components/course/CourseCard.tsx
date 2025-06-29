@@ -15,7 +15,8 @@ export const CourseCard: React.FC<CourseCardProps> = ({
     ? Math.round(((course.completed_lessons || 0) / (course.total_lessons || 1)) * 100)
     : 0;
 
-  const getDifficultyColor = (difficulty: string) => {
+  const getDifficultyColor = (difficulty?: string) => {
+    if (!difficulty) return 'bg-gray-100 text-gray-800';
     switch (difficulty.toLowerCase()) {
       case 'beginner':
       case 'principiante':
@@ -32,6 +33,7 @@ export const CourseCard: React.FC<CourseCardProps> = ({
   };
 
   const formatDuration = (minutes: number) => {
+    if (!minutes) return 'N/A';
     if (minutes < 60) {
       return `${minutes} min`;
     }
@@ -41,16 +43,21 @@ export const CourseCard: React.FC<CourseCardProps> = ({
   };
 
   const formatDate = (dateString: string) => {
-return new Date(dateString).toLocaleDateString('es-ES', {
-        year: 'numeric',
+    if (!dateString) return 'Fecha no disponible';
+    return new Date(dateString).toLocaleDateString('es-ES', {
+      year: 'numeric',
       month: 'short',
       day: 'numeric'
     });
   };
 
+  if (!course) {
+    return null;
+  }
+
   return (
     <Link 
-      to={`/courses/${course.id}`}
+      to={`/course/${course.id}`}
       state={{ course }}
       className={`course-card flex flex-col bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border border-gray-200 hover:border-blue-300 ${className}`}
     >
@@ -79,7 +86,7 @@ return new Date(dateString).toLocaleDateString('es-ES', {
       <div className="p-4 flex-grow flex flex-col">
         <div className="mb-3">
           <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-2">
-            {course.title}
+            {course.title || "Curso sin título"}
           </h3>
           
           <div className="flex items-center justify-between mb-2">
@@ -89,20 +96,18 @@ return new Date(dateString).toLocaleDateString('es-ES', {
               {course.difficulty_level === 'beginner' ? 'Principiante' :
                course.difficulty_level === 'intermediate' ? 'Intermedio' :
                course.difficulty_level === 'advanced' ? 'Avanzado' :
-               course.difficulty_level}
+               course.difficulty_level || 'No definido'}
             </span>
             
-            {course.estimated_duration && (
-              <span className="text-xs text-gray-500 flex items-center">
-                <span className="mr-1">⏱️</span>
-                {formatDuration(course.estimated_duration)}
-              </span>
-            )}
+            <span className="text-xs text-gray-500 flex items-center">
+              <span className="mr-1">⏱️</span>
+              {formatDuration(course.estimated_duration)}
+            </span>
           </div>
         </div>
 
         <p className="text-gray-600 text-sm mb-4 line-clamp-3 flex-grow">
-          {course.description}
+          {course.description || "Sin descripción."}
         </p>
 
         {(course.total_lessons || 0) > 0 && (

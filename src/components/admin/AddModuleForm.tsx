@@ -1,66 +1,80 @@
 import React, { useState } from 'react';
-import type { Module } from '@plataforma-educativa/types';
+import { useForm, Controller, SubmitHandler } from 'react-hook-form';
 import { moduleService, CreateModuleData } from '../../services/moduleService';
-import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
 import { Spinner } from '../ui/Spinner';
 import { Alert } from '../ui/Alert';
 
 interface AddModuleFormProps {
   courseId: string;
-  onModuleAdded: (newModule: Module) => void;
+  onModuleAdded: () => void;
+  onCancel: () => void;
   nextOrderIndex: number;
 }
 
-export const AddModuleForm: React.FC<AddModuleFormProps> = ({ courseId, onModuleAdded, nextOrderIndex }) => {
-  const [title, setTitle] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+type FormData = {
+  title: string;
+  description: string;
+};
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) {
-      setError('El título es obligatorio.');
-      return;
-    }
-    setError(null);
-    setIsSubmitting(true);
+export const AddModuleForm: React.FC<AddModuleFormProps> = ({ courseId, onModuleAdded, onCancel, nextOrderIndex }) => {
+  const [formError, setFormError] = useState<string | null>(null);
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<FormData>({
+    defaultValues: { title: '', description: '' },
+  });
 
-    const newModuleData: CreateModuleData = {
-      title,
+  const onSubmit: SubmitHandler<FormData> = async (formData) => {
+    setFormError(null);
+    const moduleData: CreateModuleData = {
+      ...formData,
       course_id: courseId,
       order_index: nextOrderIndex,
       is_active: true,
     };
 
-    const response = await moduleService.createModule(newModuleData);
-
+    const response = await moduleService.createModule(moduleData);
     if (response.data) {
-      onModuleAdded(response.data);
-      setTitle('');
+      onModuleAdded();
     } else {
-      setError(response.error?.message || 'Ocurrió un error desconocido.');
+      setFormError(response.error?.message || 'Error al crear el módulo.');
     }
-
-    setIsSubmitting(false);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-      <h4 className="text-lg font-semibold text-gray-700 mb-3">Añadir Nuevo Módulo</h4>
-      {error && <Alert variant="destructive" title="Error">{error}</Alert>}
-      <div className="flex items-start space-x-3">
-        <div className="flex-grow">
-          <Input
-            id="new-module-title"
-            placeholder="Título del nuevo módulo"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            disabled={isSubmitting}
-          />
-        </div>
-        <Button type="submit" disabled={isSubmitting || !title.trim()}>
-          {isSubmitting ? <Spinner size="sm" /> : 'Añadir'}
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <h3 className="text-lg font-semibold text-gray-800">Nuevo Módulo</h3>
+      <div>
+        <label htmlFor="module-title" className="block text-sm font-medium text-gray-700">Título del Módulo</label>
+        <Controller
+          name="title"
+          control={control}
+          rules={{ required: 'El título es obligatorio' }}
+          render={({ field }) => <Input id="module-title" {...field} />}
+        />
+        {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title.message}</p>}
+      </div>
+      <div>
+        <label htmlFor="module-description" className="block text-sm font-medium text-gray-700">Descripción</label>
+        <Controller
+          name="description"
+          control={control}
+          render={({ field }) => <textarea id="module-description" {...field} value={field.value || ''} rows={3} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />}
+        />
+      </div>
+
+      {formError && <Alert variant="destructive">{formError}</Alert>}
+
+      <div className="flex justify-end space-x-2">
+        <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? <Spinner size="sm" /> : 'Añadir Módulo'}
         </Button>
       </div>
     </form>

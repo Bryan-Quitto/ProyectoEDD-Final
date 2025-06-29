@@ -5,14 +5,16 @@ import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { Spinner } from '../ui/Spinner';
 import { LessonList } from './LessonList';
+import { ChevronDown, ChevronRight, Edit, Trash2 } from 'lucide-react';
+import { Alert } from '../ui/Alert';
+import toast from 'react-hot-toast';
 
 interface ModuleItemProps {
   module: Module;
-  onModuleUpdated: (updatedModule: Module) => void;
-  onModuleDeleted: (moduleId: string) => void;
+  onNeedsRefresh: () => void;
 }
 
-export const ModuleItem: React.FC<ModuleItemProps> = ({ module, onModuleUpdated, onModuleDeleted }) => {
+export const ModuleItem: React.FC<ModuleItemProps> = ({ module, onNeedsRefresh }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [editedTitle, setEditedTitle] = useState(module.title);
@@ -20,31 +22,78 @@ export const ModuleItem: React.FC<ModuleItemProps> = ({ module, onModuleUpdated,
   const [error, setError] = useState<string | null>(null);
 
   const handleUpdate = async () => {
-    if (!editedTitle.trim()) return;
+    if (!editedTitle.trim()) {
+      toast.error("El título no puede estar vacío.");
+      return;
+    }
     setError(null);
     setIsSubmitting(true);
-    const response = await moduleService.updateModule(module.id, { title: editedTitle });
-    if (response.data) {
-      onModuleUpdated(response.data);
-      setIsEditing(false);
-    } else {
-      setError(response.error?.message || 'Error al actualizar.');
-    }
-    setIsSubmitting(false);
+    const promise = moduleService.updateModule(module.id, { title: editedTitle });
+    
+    toast.promise(promise, {
+      loading: 'Actualizando módulo...',
+      success: (res) => {
+        if (res.error) throw new Error(res.error.message);
+        onNeedsRefresh();
+        setIsEditing(false);
+        setIsSubmitting(false);
+        return 'Módulo actualizado.';
+      },
+      error: (err) => {
+        setError(err.message);
+        setIsSubmitting(false);
+        return err.message;
+      }
+    });
   };
 
-  const handleDelete = async (e: React.MouseEvent) => {
+  const confirmDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm(`¿Seguro que quieres eliminar el módulo "${module.title}" y todas sus lecciones?`)) {
-      setIsSubmitting(true);
-      const response = await moduleService.deleteModule(module.id);
-      if (response.data) {
-        onModuleDeleted(module.id);
-      } else {
-        setError(response.error?.message || 'Error al eliminar.');
+    toast((t) => (
+      <div className='flex flex-col gap-2'>
+        <p>¿Seguro que quieres eliminar el módulo <strong>"{module.title}"</strong>?</p>
+        <div className='flex gap-2'>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => {
+              toast.dismiss(t.id);
+              handleDelete();
+            }}
+          >
+            Sí, eliminar
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => toast.dismiss(t.id)}
+          >
+            Cancelar
+          </Button>
+        </div>
+      </div>
+    ), {
+      duration: 6000,
+    });
+  };
+
+  const handleDelete = async () => {
+    setError(null);
+    setIsSubmitting(true);
+    const promise = moduleService.deleteModule(module.id);
+
+    toast.promise(promise, {
+      loading: 'Eliminando módulo...',
+      success: (res) => {
+        if (res.error) throw new Error(res.error.message);
+        onNeedsRefresh();
+        return 'Módulo eliminado.';
+      },
+      error: (err) => {
         setIsSubmitting(false);
+        return err.message;
       }
-    }
+    });
   };
 
   const toggleExpansion = () => {
@@ -59,8 +108,15 @@ export const ModuleItem: React.FC<ModuleItemProps> = ({ module, onModuleUpdated,
     setIsExpanded(false);
   };
 
+  const handleCancelEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsEditing(false);
+    setEditedTitle(module.title);
+    setError(null);
+  }
+
   return (
-    <li className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <li className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden transition-all duration-300">
       <div 
         className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50"
         onClick={toggleExpansion}
@@ -72,34 +128,35 @@ export const ModuleItem: React.FC<ModuleItemProps> = ({ module, onModuleUpdated,
               onChange={(e) => setEditedTitle(e.target.value)}
               onClick={(e) => e.stopPropagation()}
               className="flex-grow"
+              autoFocus
             />
-            <Button onClick={handleUpdate} size="sm" disabled={isSubmitting}>
-              {isSubmitting ? <Spinner size="sm" /> : 'Guardar'}
+            <Button onClick={handleUpdate} size="sm" isLoading={isSubmitting}>
+              Guardar
             </Button>
-            <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); setIsEditing(false); }} disabled={isSubmitting}>
+            <Button variant="secondary" size="sm" onClick={handleCancelEdit} disabled={isSubmitting}>
               Cancelar
             </Button>
           </div>
         ) : (
           <div className="flex-grow flex items-center justify-between">
             <div className="flex items-center">
-                <span className={`transform transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>▶</span>
-                <span className="ml-3 text-gray-800 font-medium">{module.title}</span>
+                {isExpanded ? <ChevronDown className="h-5 w-5 mr-3 text-gray-500"/> : <ChevronRight className="h-5 w-5 mr-3 text-gray-500"/>}
+                <span className="text-gray-800 font-medium">{module.title}</span>
             </div>
-            <div className="space-x-2">
-              <Button variant="secondary" size="sm" onClick={handleEditClick} disabled={isSubmitting}>
-                Editar
+            <div className="space-x-1">
+              <Button variant="ghost" size="icon" onClick={handleEditClick} disabled={isSubmitting}>
+                <Edit className="h-4 w-4" />
               </Button>
-              <Button variant="destructive" size="sm" onClick={handleDelete} disabled={isSubmitting}>
-                {isSubmitting ? <Spinner size="sm" /> : 'Eliminar'}
+              <Button variant="ghost" size="icon" onClick={confirmDelete} isLoading={isSubmitting}>
+                <Trash2 className="h-4 w-4 text-red-500" />
               </Button>
             </div>
           </div>
         )}
       </div>
-      {error && <p className="text-red-500 text-xs p-4 pt-0">{error}</p>}
+      {error && !isEditing && <div className="px-4 pb-2"><Alert variant="destructive">{error}</Alert></div>}
       {isExpanded && (
-        <div className="p-4 bg-gray-50 border-t border-gray-200">
+        <div className="p-4 bg-gray-50/70 border-t border-gray-200">
           <LessonList moduleId={module.id} />
         </div>
       )}

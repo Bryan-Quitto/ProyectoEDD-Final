@@ -11,6 +11,8 @@ import CourseDetailPage from './pages/CourseDetailPage';
 import LessonViewPage from './pages/LessonViewPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import CourseBuilderPage from './pages/admin/CourseBuilderPage';
+import TeacherDashboardPage from './pages/teacher/TeacherDashboardPage';
+import CourseStudentsPage from './pages/teacher/CourseStudentsPage';
 
 function App() {
   const { user, loading } = useAuth();
@@ -33,38 +35,42 @@ function App() {
     );
   }
 
+  const getHomeRedirect = () => {
+    switch(user.role) {
+      case 'admin':
+        return '/admin/dashboard';
+      case 'teacher':
+        return '/teacher/dashboard';
+      case 'student':
+      default:
+        return '/dashboard';
+    }
+  }
+
   return (
     <MainLayout>
       <Routes>
-        <Route
-          path="/"
-          element={
-            user.role === 'admin' || user.role === 'teacher'
-              ? <Navigate to="/admin/dashboard" replace />
-              : <Navigate to="/dashboard" replace />
-          }
-        />
+        <Route path="/" element={<Navigate to={getHomeRedirect()} replace />} />
         
-        <Route path="/dashboard" element={<StudentDashboard />} />
-        <Route path="/courses" element={<CourseCatalogPage />} />
-        <Route path="/course/:courseId" element={<CourseDetailPage />} />
-        <Route path="/course/:courseId/lesson/:lessonId" element={<LessonViewPage />} />
+        <Route element={<ProtectedRoute allowedRoles={['student']} />}>
+          <Route path="/dashboard" element={<StudentDashboard />} />
+          <Route path="/courses" element={<CourseCatalogPage />} />
+          <Route path="/course/:courseId" element={<CourseDetailPage />} />
+          <Route path="/course/:courseId/lesson/:lessonId" element={<LessonViewPage />} />
+        </Route>
 
         <Route element={<ProtectedRoute allowedRoles={['admin', 'teacher']} />}>
           <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
           <Route path="/admin/course/create" element={<CourseBuilderPage mode="create" />} />
           <Route path="/admin/course/edit/:courseId" element={<CourseBuilderPage mode="edit" />} />
+          <Route path="/teacher/course/:courseId/students" element={<CourseStudentsPage />} />
         </Route>
         
-        <Route
-          path="*"
-          element={
-            <Navigate 
-              to={user.role === 'admin' || user.role === 'teacher' ? "/admin/dashboard" : "/dashboard"} 
-              replace 
-            />
-          }
-        />
+        <Route element={<ProtectedRoute allowedRoles={['teacher']} />}>
+          <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />
+        </Route>
+        
+        <Route path="*" element={<Navigate to={getHomeRedirect()} replace />} />
       </Routes>
     </MainLayout>
   );
