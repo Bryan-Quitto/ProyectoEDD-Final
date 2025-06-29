@@ -3,9 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// ESTA ES LA LÓGICA MÁS IMPORTANTE DEL PROYECTO
+console.log("--- [supabase.ts] INICIALIZANDO CLIENTE ---");
+console.log("URL:", supabaseUrl);
+console.log("Anon Key:", supabaseAnonKey ? "****************" : "¡¡¡NO ENCONTRADA!!!");
+
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error("Error de configuración: Las variables VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY no están definidas en el archivo .env. La aplicación no puede iniciarse.");
+  throw new Error("Supabase URL o Anon Key no están definidas en las variables de entorno. Asegúrate de que tu archivo .env.local existe y las variables tienen el prefijo VITE_");
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

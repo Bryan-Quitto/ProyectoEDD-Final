@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import type { Module, Lesson } from '../../types';
+import type { Module, Lesson } from '@plataforma-educativa/types';
 import { BookOpen, CheckCircle, ChevronDown, Film, FileText, Puzzle } from 'lucide-react';
 
 interface ModuleAccordionProps {

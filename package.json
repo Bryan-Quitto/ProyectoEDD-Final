@@ -1,8 +1,12 @@
 {
-  "name": "plataforma-educativa",
+  "name": "plataforma-educativa-monorepo",
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "workspaces": [
+    "server",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -13,6 +17,7 @@
     "server:start": "node server/dist/index.js"
   },
   "dependencies": {
+    "@plataforma-educativa/types": "1.0.0",
     "@supabase/supabase-js": "^2.50.2",
     "@tanstack/react-query": "^5.0.0",
     "axios": "^1.6.0",

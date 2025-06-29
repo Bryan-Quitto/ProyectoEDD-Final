@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { CourseCard } from './CourseCard';
-import type { Course } from '../../types';
+import type { Course } from '@plataforma-educativa/types';
 import { CourseService } from '../../services/courseService';
 import { Spinner } from '../ui/Spinner';
 import { Alert } from '../ui/Alert';
@@ -9,6 +9,9 @@ interface CourseListProps {
   className?: string;
 }
 
+type Difficulty = 'all' | 'beginner' | 'intermediate' | 'advanced';
+type SortBy = 'title' | 'created_at' | 'difficulty';
+
 export const CourseList: React.FC<CourseListProps> = ({
   className = ''
 }) => {
@@ -16,8 +19,8 @@ export const CourseList: React.FC<CourseListProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [difficultyFilter, setDifficultyFilter] = useState<'all' | 'beginner' | 'intermediate' | 'advanced'>('all');
-  const [sortBy, setSortBy] = useState<'title' | 'created_at' | 'difficulty'>('created_at');
+  const [difficultyFilter, setDifficultyFilter] = useState<Difficulty>('all');
+  const [sortBy, setSortBy] = useState<SortBy>('created_at');
 
   const loadCourses = useCallback(async () => {
     try {
@@ -28,13 +31,19 @@ export const CourseList: React.FC<CourseListProps> = ({
         difficulty: difficultyFilter !== 'all' ? difficultyFilter : undefined,
       });
 
-      if (apiError) throw apiError;
+      if (apiError) {
+        throw new Error(apiError.message || 'Error al obtener los cursos');
+      }
       
       if (data) {
         setCourses(data);
       }
-    } catch (err: any) {
-      setError(err.message || 'Error al cargar los cursos');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Ocurrió un error desconocido');
+      }
       console.error('Error loading courses:', err);
     } finally {
       setLoading(false);
@@ -44,7 +53,7 @@ export const CourseList: React.FC<CourseListProps> = ({
   useEffect(() => {
     const handler = setTimeout(() => {
       loadCourses();
-    }, 500); // Debounce para no llamar al API en cada tecleo
+    }, 500);
 
     return () => {
       clearTimeout(handler);
@@ -54,14 +63,17 @@ export const CourseList: React.FC<CourseListProps> = ({
   const sortedCourses = [...courses]
     .sort((a, b) => {
       switch (sortBy) {
-        case 'title':
+        case 'title': {
           return a.title.localeCompare(b.title);
-        case 'difficulty':
+        }
+        case 'difficulty': {
           const difficultyOrder = { 'beginner': 1, 'intermediate': 2, 'advanced': 3 };
           return (difficultyOrder[a.difficulty_level] || 0) - (difficultyOrder[b.difficulty_level] || 0);
+        }
         case 'created_at':
-        default:
+        default: {
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        }
       }
     });
 
@@ -115,7 +127,7 @@ export const CourseList: React.FC<CourseListProps> = ({
 
           <select
             value={difficultyFilter}
-            onChange={(e) => setDifficultyFilter(e.target.value as any)}
+            onChange={(e) => setDifficultyFilter(e.target.value as Difficulty)}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="all">Todas las dificultades</option>
@@ -126,7 +138,7 @@ export const CourseList: React.FC<CourseListProps> = ({
 
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
+            onChange={(e) => setSortBy(e.target.value as SortBy)}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="created_at">Más recientes</option>

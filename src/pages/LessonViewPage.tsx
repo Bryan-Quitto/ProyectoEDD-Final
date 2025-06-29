@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { CourseService } from '../services/courseService';
 import { lessonService } from '../services/lessonService';
-import type { Lesson, CourseDetails, Module } from '../types';
+import type { Lesson, CourseDetails, Module } from '@plataforma-educativa/types';
 import { Spinner } from '../components/ui/Spinner';
 import { Alert } from '../components/ui/Alert';
 import { Button } from '../components/ui/Button';
@@ -59,8 +59,12 @@ const LessonViewPage: React.FC = () => {
           throw new Error('Curso no encontrado.');
         }
 
-      } catch (err: any) {
-        setError(err.message || 'Error al cargar el contenido.');
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+            setError(err.message);
+        } else {
+            setError('Error al cargar el contenido.');
+        }
         console.error(err);
       } finally {
         setLoading(false);
@@ -115,7 +119,7 @@ const LessonViewPage: React.FC = () => {
             ></iframe>
           </div>
         );
-      } catch (e) {
+      } catch {
          return <Alert variant="destructive">La URL del video de YouTube no es válida.</Alert>
       }
     }
@@ -163,7 +167,9 @@ const LessonViewPage: React.FC = () => {
             </Button>
 
             <Button
-              onClick={() => {}}
+              onClick={() => {
+                // Lógica para marcar como completada
+              }}
               variant="primary"
               className="my-4 sm:my-0"
             >

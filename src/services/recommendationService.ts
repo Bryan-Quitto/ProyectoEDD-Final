@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Recommendation, PerformanceState, ApiResponse } from '../types';
+import type { Recommendation, PerformanceState, ApiResponse } from '@plataforma-educativa/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 

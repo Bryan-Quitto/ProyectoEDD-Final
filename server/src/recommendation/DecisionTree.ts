@@ -1,4 +1,4 @@
-import { DecisionNode, RecommendationAction, PerformanceState } from '../../../src/types';
+import { DecisionNode, RecommendationAction, PerformanceState } from '@plataforma-educativa/types';
 
 export class DecisionTree {
   private root: DecisionNode;
@@ -7,7 +7,6 @@ export class DecisionTree {
     this.root = this.buildDecisionTree();
   }
 
-  // Construye el árbol de decisión para recomendaciones
   private buildDecisionTree(): DecisionNode {
     return {
       id: 'root',
@@ -20,7 +19,7 @@ export class DecisionTree {
         trueNode: {
           id: 'excellent_performance',
           condition: 'learning_pace',
-          threshold: 0, // string comparison
+          threshold: 0,
           action: {
             type: 'content',
             target: 'advanced_content',
@@ -57,7 +56,7 @@ export class DecisionTree {
       falseNode: {
         id: 'low_progress',
         condition: 'time_spent',
-        threshold: 120, // minutos por semana
+        threshold: 120,
         trueNode: {
           id: 'slow_learner',
           condition: 'current_difficulty',
@@ -72,7 +71,7 @@ export class DecisionTree {
         falseNode: {
           id: 'low_engagement',
           condition: 'last_activity',
-          threshold: 7, // días
+          threshold: 7,
           trueNode: {
             id: 'motivational_content',
             condition: '',
@@ -98,7 +97,6 @@ export class DecisionTree {
     };
   }
 
-  // Evalúa el estado del estudiante y genera recomendaciones
   public generateRecommendations(performanceState: PerformanceState): RecommendationAction[] {
     const recommendations: RecommendationAction[] = [];
     const action = this.traverseTree(this.root, performanceState);
@@ -106,15 +104,13 @@ export class DecisionTree {
     if (action) {
       recommendations.push(action);
     }
-
-    // Generar recomendaciones adicionales basadas en patrones específicos
+    
     const additionalRecommendations = this.generateAdditionalRecommendations(performanceState);
     recommendations.push(...additionalRecommendations);
 
     return recommendations;
   }
 
-  // Recorre el árbol de decisión
   private traverseTree(node: DecisionNode, state: PerformanceState): RecommendationAction | null {
     if (node.action) {
       return node.action;
@@ -129,27 +125,29 @@ export class DecisionTree {
 
     let shouldGoTrue = false;
 
-    // Evaluar condición según el tipo
     switch (node.condition) {
-      case 'learning_pace':
+      case 'learning_pace': {
         shouldGoTrue = state.learning_pace === 'fast';
         break;
-      case 'current_difficulty':
+      }
+      case 'current_difficulty': {
         shouldGoTrue = state.current_difficulty === 'advanced';
         break;
-      case 'last_activity':
+      }
+      case 'last_activity': {
         const daysSinceLastActivity = this.getDaysSinceLastActivity(state.last_activity);
         shouldGoTrue = daysSinceLastActivity <= threshold;
         break;
-      default:
+      }
+      default: {
         shouldGoTrue = conditionValue >= threshold;
+      }
     }
 
     const nextNode = shouldGoTrue ? node.trueNode : node.falseNode;
     return nextNode ? this.traverseTree(nextNode, state) : null;
   }
 
-  // Obtiene el valor de la condición del estado
   private getConditionValue(condition: string, state: PerformanceState): number {
     switch (condition) {
       case 'overall_progress':
@@ -167,19 +165,16 @@ export class DecisionTree {
     }
   }
 
-  // Calcula días desde la última actividad
   private getDaysSinceLastActivity(lastActivity: string): number {
     const lastDate = new Date(lastActivity);
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - lastDate.getTime());
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
-
-  // Genera recomendaciones adicionales basadas en patrones
+  
   private generateAdditionalRecommendations(state: PerformanceState): RecommendationAction[] {
     const recommendations: RecommendationAction[] = [];
 
-    // Recomendación por tiempo de estudio
     if (state.total_time_spent < 60) {
       recommendations.push({
         type: 'pace',
@@ -189,7 +184,6 @@ export class DecisionTree {
       });
     }
 
-    // Recomendación por progreso estancado
     if (state.overall_progress < 20 && state.lessons_completed === 0) {
       recommendations.push({
         type: 'content',
@@ -199,7 +193,6 @@ export class DecisionTree {
       });
     }
 
-    // Recomendación por bajo rendimiento en evaluaciones
     if (state.average_score < 60 && state.evaluations_passed < 2) {
       recommendations.push({
         type: 'review',
@@ -212,12 +205,10 @@ export class DecisionTree {
     return recommendations;
   }
 
-  // Actualiza el árbol de decisión (para futuras mejoras con ML)
   public updateTree(newRoot: DecisionNode): void {
     this.root = newRoot;
   }
 
-  // Obtiene estadísticas del árbol
   public getTreeStats(): { depth: number; nodes: number } {
     return {
       depth: this.calculateDepth(this.root),
@@ -225,18 +216,25 @@ export class DecisionTree {
     };
   }
 
-  private calculateDepth(node: DecisionNode): number {
+  private calculateDepth(node: DecisionNode | undefined): number {
+    if (!node) {
+      return 0;
+    }
+    
     if (!node.trueNode && !node.falseNode) {
       return 1;
     }
 
-    const leftDepth = node.trueNode ? this.calculateDepth(node.trueNode) : 0;
-    const rightDepth = node.falseNode ? this.calculateDepth(node.falseNode) : 0;
+    const leftDepth = this.calculateDepth(node.trueNode);
+    const rightDepth = this.calculateDepth(node.falseNode);
 
     return 1 + Math.max(leftDepth, rightDepth);
   }
 
-  private countNodes(node: DecisionNode): number {
+  private countNodes(node: DecisionNode | undefined): number {
+    if (!node) {
+      return 0;
+    }
     let count = 1;
     if (node.trueNode) count += this.countNodes(node.trueNode);
     if (node.falseNode) count += this.countNodes(node.falseNode);

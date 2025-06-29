@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { CourseService } from '../services/courseService';
-import type { CourseDetails, Course } from '../types';
+import type { CourseDetails, Course, Module, Lesson } from '@plataforma-educativa/types';
 import { Spinner } from '../components/ui/Spinner';
 import { Alert } from '../components/ui/Alert';
 import { ModuleAccordion } from '../components/course/ModuleAccordion';
@@ -39,8 +39,12 @@ const CourseDetailPage: React.FC = () => {
         } else {
           setError('No se encontró el curso especificado.');
         }
-      } catch (err: any) {
-        setError('No se pudo cargar la información del curso. Por favor, inténtalo de nuevo.');
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+            setError(err.message);
+        } else {
+            setError('No se pudo cargar la información del curso. Por favor, inténtalo de nuevo.');
+        }
         console.error(err);
       } finally {
         setLoading(false);
@@ -110,7 +114,7 @@ const CourseDetailPage: React.FC = () => {
                 )}
                 {course && course.modules && course.modules.length > 0 ? (
                   course.modules
-                    .sort((a, b) => a.order_index - b.order_index)
+                    .sort((a: Module, b: Module) => a.order_index - b.order_index)
                     .map((module) => (
                       <ModuleAccordion key={module.id} module={module} courseId={course!.id} />
                     ))
@@ -152,9 +156,9 @@ const CourseDetailPage: React.FC = () => {
               <div className="mt-6 text-sm">
                 <h3 className="font-semibold text-gray-700 mb-3">Detalles del curso:</h3>
                 <ul className="space-y-2 text-gray-600">
-                  <li className="flex justify-between"><span>Lecciones:</span> <strong>{course?.modules?.reduce((acc, m) => acc + (m.lessons?.length || 0), 0) || '...'}</strong></li>
+                  <li className="flex justify-between"><span>Lecciones:</span> <strong>{course?.modules?.reduce((acc: number, m: Module) => acc + (m.lessons?.length || 0), 0) || '...'}</strong></li>
                   <li className="flex justify-between"><span>Módulos:</span> <strong>{course?.modules?.length || '...'}</strong></li>
-                  <li className="flex justify-between"><span>Evaluaciones:</span> <strong>{course?.modules?.reduce((acc, m) => acc + (m.lessons?.reduce((lAcc, l) => lAcc + (l.evaluations?.length || 0), 0) || 0), 0) || '...'}</strong></li>
+                  <li className="flex justify-between"><span>Evaluaciones:</span> <strong>{course?.modules?.reduce((acc: number, m: Module) => acc + (m.lessons?.reduce((lAcc: number, l: Lesson) => lAcc + (l.evaluations?.length || 0), 0) || 0), 0) || '...'}</strong></li>
                 </ul>
               </div>
             </div>

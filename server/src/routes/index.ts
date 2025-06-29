@@ -1,21 +1,18 @@
 import { Router } from 'express';
-import recommendationRoutes from './recommendationRoutes';
+import authRoutes from './authRoutes';
 import courseRoutes from './courseRoutes';
-import authRoutes from '../routes/authRoutes';
+import recommendationRoutes from './recommendationRoutes';
+import moduleRoutes from './moduleRoutes';
+import lessonRoutes from './lessonRoutes'; 
+import evaluationRoutes from './evaluationRoutes';
 
 const router = Router();
 
-// Configurar rutas principales
-router.use('/api/recommendations', recommendationRoutes);
-router.use('/api/courses', courseRoutes);
-
-// Ruta de salud del servidor
-router.get('/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Servidor funcionando correctamente',
-    timestamp: new Date().toISOString()
-  });
-});
+router.use('/auth', authRoutes);
+router.use('/courses', courseRoutes);
+router.use('/recommendations', recommendationRoutes);
+router.use('/modules', moduleRoutes);
+router.use('/lessons', lessonRoutes);
+router.use('/evaluations', evaluationRoutes);
 
 export default router;

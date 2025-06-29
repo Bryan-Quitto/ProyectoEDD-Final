@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "strict": true,
+    "declaration": true,       // Genera archivos .d.ts (crucial)
+    "emitDeclarationOnly": true, // No genera archivos .js, solo los de tipos
+    "composite": true,         // Habilita las referencias de proyecto (crucial)
+    "outDir": "dist"           // Dónde poner los archivos .d.ts generados
+  },
+  "include": ["index.ts"]
+}

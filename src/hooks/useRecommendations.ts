@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Recommendation } from '../types';
+import type { Recommendation} from '@plataforma-educativa/types';
 import { RecommendationService } from '../services/recommendationService';
 
-export const useRecommendations = (studentId: string) => {
+export const useRecommendations = (studentId?: string) => {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -12,70 +12,78 @@ export const useRecommendations = (studentId: string) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await RecommendationService.getRecommendations(studentId);
-      if (response.success) {
-        setRecommendations(response.data || []);
-      } else {
-        setError(response.error || 'Error al cargar recomendaciones');
+      const { data, error: apiError } = await RecommendationService.getRecommendations(studentId);
+      if (apiError) {
+        throw new Error(apiError.message);
       }
-    } catch (err) {
-      setError('Error de conexión');
+      setRecommendations(data || []);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error de conexión';
+      setError(message);
+      console.error(err);
     } finally {
       setLoading(false);
     }
   }, [studentId]);
 
-  const generateRecommendations = async () => {
+  const generateRecommendations = useCallback(async () => {
     if (!studentId) return;
     try {
       setLoading(true);
       setError(null);
-      const response = await RecommendationService.generateRecommendations(studentId);
-      if (response.success) {
-        setRecommendations(response.data || []);
-      } else {
-        setError(response.error || 'Error al generar recomendaciones');
+      const { data, error: apiError } = await RecommendationService.generateRecommendations(studentId);
+      if (apiError) {
+        throw new Error(apiError.message);
       }
-    } catch (err) {
-      setError('Error de conexión');
+      setRecommendations(data || []);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error de conexión';
+      setError(message);
+      console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [studentId]);
 
-  const markAsRead = async (recommendationId: string) => {
+  const markAsRead = useCallback(async (recommendationId: string) => {
     try {
-      const response = await RecommendationService.markAsRead(recommendationId);
-      if (response.success) {
-        setRecommendations(prev => 
-          prev.map(rec => 
-            rec.id === recommendationId 
-              ? { ...rec, is_read: true }
-              : rec
-          )
-        );
+      const { error: apiError } = await RecommendationService.markAsRead(recommendationId);
+      if (apiError) {
+        throw new Error(apiError.message);
       }
-    } catch (err) {
-      setError('Error al marcar como leída');
+      setRecommendations(prev => 
+        prev.map(rec => 
+          rec.id === recommendationId 
+            ? { ...rec, is_read: true }
+            : rec
+        )
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al marcar como leída';
+      setError(message);
+      console.error(err);
     }
-  };
+  }, []);
 
-  const markAsApplied = async (recommendationId: string) => {
+  const markAsApplied = useCallback(async (recommendationId: string) => {
     try {
-      const response = await RecommendationService.markAsApplied(recommendationId);
-      if (response.success) {
-        setRecommendations(prev => 
-          prev.map(rec => 
-            rec.id === recommendationId 
-              ? { ...rec, is_applied: true }
-              : rec
-          )
-        );
+      const { error: apiError } = await RecommendationService.markAsApplied(recommendationId);
+      if (apiError) {
+        throw new Error(apiError.message);
       }
-    } catch (err) {
-      setError('Error al marcar como aplicada');
+      setRecommendations(prev => 
+        prev.map(rec => 
+          rec.id === recommendationId 
+            ? { ...rec, is_applied: true }
+            : rec
+        )
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al marcar como aplicada';
+      setError(message);
+      console.error(err);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchRecommendations();

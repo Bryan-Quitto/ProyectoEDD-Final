@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   email: string;
@@ -6,12 +5,6 @@ export interface User {
   role: 'student' | 'teacher' | 'admin';
   created_at: string;
   updated_at: string;
-}
-
-export interface AuthContextType {
-  user: User | null;
-  loading: boolean;
-  signOut: () => Promise<void>;
 }
 
 export interface Course {
@@ -58,13 +51,21 @@ export interface Lesson {
   is_completed_by_user?: boolean;
 }
 
-export interface Evaluation {
+export interface Question {
   id: string;
+  question_text: string;
+  question_type: 'multiple_choice' | 'true_false' | 'short_answer';
+  options?: string[];
+  points: number;
+}
+
+export interface Evaluation {
+  id:string;
   lesson_id: string;
   title: string;
   description: string | null;
   evaluation_type: 'quiz' | 'assignment' | 'project';
-  questions: any; // JSONB
+  questions: Question[];
   max_score: number;
   passing_score: number;
   max_attempts: number;
@@ -79,7 +80,7 @@ export interface EvaluationAttempt {
   evaluation_id: string;
   student_id: string;
   attempt_number: number;
-  answers: any; // JSONB
+  answers: Record<string, unknown>;
   score: number;
   max_score: number;
   percentage: number;
@@ -119,6 +120,18 @@ export interface PerformanceState {
   updated_at: string;
 }
 
+export interface CreateUserData {
+  email: string;
+  password?: string;
+  full_name: string;
+  role: 'student' | 'teacher' | 'admin';
+}
+
+export interface ApiError {
+  message: string;
+  status?: number;
+}
+
 export interface Recommendation {
   id: string;
   student_id: string;
@@ -144,7 +157,7 @@ export interface CourseDetails extends Course {
 
 export interface ApiResponse<T> {
   data: T | null;
-  error: any | null;
+  error: ApiError | null;
 }
 
 export interface CourseFilters {
@@ -159,4 +172,28 @@ export interface PaginatedResponse<T> {
   total: number;
   page: number;
   limit: number;
+}
+
+export interface RecommendationAction {
+  type: 'content' | 'difficulty' | 'pace' | 'review';
+  target: string;
+  priority: 'low' | 'medium' | 'high';
+  message: string;
+}
+
+export interface DecisionNode {
+  id: string;
+  condition: string;
+  threshold?: number;
+  trueNode?: DecisionNode;
+  falseNode?: DecisionNode;
+  action?: RecommendationAction;
+}
+
+export interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<{ error: ApiError | null }>;
+  signUp: (userData: CreateUserData) => Promise<{ error: ApiError | null }>;
+  signOut: () => Promise<void>;
 }

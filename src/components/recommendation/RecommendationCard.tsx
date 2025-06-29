@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Recommendation } from '../../types';
+import type { Recommendation } from '@plataforma-educativa/types';
 import { Button } from '../ui/Button';
 
 interface RecommendationCardProps {

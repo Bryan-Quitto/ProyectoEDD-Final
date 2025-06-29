@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { AuthService } from '../services/authService';
+import React, { useState } from 'react';
+import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
@@ -14,46 +14,44 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  const { signIn, signUp } = useAuth();
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log("--- Formulario enviado ---");
-    
     setError(null);
     setMessage(null);
     setLoading(true);
-    console.log("1. Estado de 'loading' establecido en: true");
 
     try {
       if (isLogin) {
-        console.log("2. Llamando a AuthService.signIn con:", email);
-        const response = await AuthService.signIn(email, password);
-        console.log("3. Respuesta recibida de AuthService:", response);
-        
-        if (!response.success) {
-          console.error("4. Error en la respuesta del servicio:", response.error);
-          throw new Error(response.error || 'Error al iniciar sesión.');
+        const { error: signInError } = await signIn(email, password);
+        if (signInError) {
+          throw signInError;
         }
-        
-        console.log("5. Inicio de sesión exitoso, esperando a AuthProvider...");
       } else {
-        // Lógica de registro...
         if (!fullName) {
           throw new Error('El nombre completo es requerido para el registro.');
         }
-        const response = await AuthService.signUp({ email, password, full_name: fullName, role: 'student' });
-        if (!response.success) throw new Error(response.error || 'Error al registrarse.');
-        setMessage(response.message || 'Registro exitoso. Revisa tu correo.');
+        const { error: signUpError } = await signUp({ 
+            email, 
+            password, 
+            full_name: fullName, 
+            role: 'student' 
+        });
+        if (signUpError) {
+          throw signUpError;
+        }
+        setMessage('¡Registro exitoso! Por favor, revisa tu correo para verificar tu cuenta (si la confirmación está activada).');
+        setIsLogin(true);
       }
-    } catch (err: any) {
-      console.error("6. CATCH BLOCK: Se ha producido un error:", err.message);
-      setError(err.message);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Ha ocurrido un error inesperado.';
+      setError(errorMessage);
     } finally {
-      console.log("7. FINALLY BLOCK: Estado de 'loading' establecido en: false");
       setLoading(false);
     }
   };
 
-  // El resto del JSX se mantiene igual, te lo incluyo para que sea fácil copiar y pegar
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
       <Card className="w-full max-w-md">
@@ -71,41 +69,50 @@ export function LoginPage() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            {message && (
+             {message && (
               <Alert variant="success">
                  <AlertTitle>Éxito</AlertTitle>
                 <AlertDescription>{message}</AlertDescription>
               </Alert>
             )}
             {!isLogin && (
+              <div className="space-y-2">
+                <label htmlFor="fullName">Nombre Completo</label>
+                <Input
+                  id="fullName"
+                  placeholder="Tu Nombre Apellido"
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+              </div>
+            )}
+            <div className="space-y-2">
+              <label htmlFor="email">Correo Electrónico</label>
               <Input
-                id="fullName"
-                placeholder="Nombre Completo"
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
+                id="email"
+                placeholder="tu@email.com"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
                 required
               />
-            )}
-            <Input
-              id="email"
-              placeholder="Correo Electrónico"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={loading}
-              required
-            />
-            <Input
-              id="password"
-              placeholder="Contraseña"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-              required
-            />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="password">Contraseña</label>
+              <Input
+                id="password"
+                placeholder="••••••••"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                required
+              />
+            </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Procesando...' : (isLogin ? 'Ingresar' : 'Registrarme')}
             </Button>
@@ -121,3 +128,5 @@ export function LoginPage() {
     </div>
   );
 }
+
+export default LoginPage;

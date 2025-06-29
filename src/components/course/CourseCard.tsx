@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import type { Course } from '../../types';
+import type { Course } from '@plataforma-educativa/types';
 
 interface CourseCardProps {
   course: Course;
@@ -41,8 +41,8 @@ export const CourseCard: React.FC<CourseCardProps> = ({
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDate-string('es-ES', {
-      year: 'numeric',
+return new Date(dateString).toLocaleDateString('es-ES', {
+        year: 'numeric',
       month: 'short',
       day: 'numeric'
     });
