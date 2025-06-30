@@ -7,14 +7,10 @@ export const evaluationService = {
   async getAttemptsHistory(evaluationId: string, studentId: string): Promise<ApiResponse<EvaluationAttempt[]>> {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        return { data: null, error: { message: "No hay una sesión activa." } };
-      }
+      if (!session) return { data: null, error: { message: "No hay una sesión activa." } };
 
       const response = await fetch(`/api/evaluations/${evaluationId}/attempts?student_id=${studentId}`, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        },
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
       });
 
       if (!response.ok) {
@@ -31,10 +27,7 @@ export const evaluationService = {
   async submitAttempt(evaluationId: string, answers: StudentAnswers): Promise<ApiResponse<EvaluationAttempt>> {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        return { data: null, error: { message: "No hay una sesión activa." } };
-      }
+      if (!session) return { data: null, error: { message: "No hay una sesión activa." } };
 
       const response = await fetch(`/api/evaluations/${evaluationId}/submit`, {
         method: 'POST',
@@ -52,6 +45,45 @@ export const evaluationService = {
       return await response.json();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Error de red al enviar el intento';
+      return { data: null, error: { message } };
+    }
+  },
+
+  async getByModuleId(moduleId: string): Promise<ApiResponse<Evaluation | null>> {
+    try {
+      const response = await fetch(`/api/evaluations/module/${moduleId}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error.message || 'Error al obtener la evaluación del módulo');
+      }
+      return await response.json();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error de red';
+      return { data: null, error: { message } };
+    }
+  },
+
+  async upsertByModuleId(moduleId: string, evalData: Partial<Evaluation>): Promise<ApiResponse<Evaluation>> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return { data: null, error: { message: "No hay una sesión activa." } };
+
+      const response = await fetch(`/api/evaluations/module/${moduleId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify(evalData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error.message || 'Error al guardar la evaluación del módulo');
+      }
+      return await response.json();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error de red';
       return { data: null, error: { message } };
     }
   },

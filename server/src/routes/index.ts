@@ -8,6 +8,7 @@ import evaluationRoutes from './evaluationRoutes';
 import performanceRoutes from './performanceRoutes';
 import enrollmentRoutes from './enrollmentRoutes';
 import userRoutes from './userRoutes';
+import moduleSupportResourceRoutes from './moduleSupportResourceRoutes';
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use('/evaluations', evaluationRoutes);
 router.use('/performance', performanceRoutes);
 router.use('/enrollments', enrollmentRoutes);
 router.use('/users', userRoutes);
+router.use('/module-resources', moduleSupportResourceRoutes);
 
 export default router;

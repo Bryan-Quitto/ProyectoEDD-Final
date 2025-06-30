@@ -105,51 +105,49 @@ export class DecisionTree {
     return {
       id: 'root',
       condition: 'overall_progress',
-      threshold: 70,
+      threshold: 10,
       trueNode: {
-        id: 'high_progress',
-        condition: 'average_score',
-        threshold: 80,
+        id: 'progress_started',
+        condition: 'overall_progress',
+        threshold: 70,
         trueNode: {
-          id: 'excellent_performance',
-          condition: 'learning_pace',
-          action: { type: 'content', target: 'advanced_content', priority: 'high', title: 'Contenido Avanzado', message: '¡Excelente progreso! Te recomendamos contenido avanzado para seguir desafiándote.' }
-        },
-        falseNode: {
-          id: 'good_progress_low_score',
-          condition: 'evaluations_passed',
-          threshold: 3,
+          id: 'high_progress',
+          condition: 'average_score',
+          threshold: 80,
           trueNode: {
-            id: 'review_needed',
-            action: { type: 'review', target: 'previous_lessons', priority: 'medium', title: 'Revisión Sugerida', message: 'Buen progreso, pero considera revisar lecciones anteriores para mejorar tus calificaciones.' }
+            id: 'excellent_performance',
+            action: { type: 'content', target: 'advanced_content', priority: 'high', title: 'Contenido Avanzado', message: '¡Excelente progreso! Te recomendamos contenido avanzado para seguir desafiándote.' }
           },
           falseNode: {
-            id: 'practice_more',
-            action: { type: 'content', target: 'practice_exercises', priority: 'high', title: 'Más Práctica', message: 'Necesitas más práctica. Te recomendamos ejercicios adicionales.' }
+            id: 'good_progress_low_score',
+            action: { type: 'review', target: 'previous_lessons', priority: 'medium', title: 'Revisión Sugerida', message: 'Buen progreso, pero considera revisar lecciones anteriores para mejorar tus calificaciones.' }
+          }
+        },
+        falseNode: {
+          id: 'medium_progress',
+          condition: 'average_score',
+          threshold: 60,
+          trueNode: {
+            id: 'steady_progress',
+            action: { type: 'content', target: 'practice_exercises', priority: 'medium', title: 'Sigue Practicando', message: 'Vas por buen camino. Te sugerimos estos ejercicios de práctica para afianzar lo aprendido.' }
+          },
+          falseNode: {
+            id: 'struggling_student',
+            action: { type: 'support', target: 'tutor', priority: 'high', title: 'Busca Apoyo', message: 'Parece que estás teniendo dificultades. Considera pedir ayuda en los foros o contactar a un tutor.' }
           }
         }
       },
       falseNode: {
-        id: 'low_progress',
-        condition: 'time_spent',
-        threshold: 120,
-        trueNode: {
-          id: 'slow_learner',
-          condition: 'current_difficulty',
-          action: { type: 'difficulty', target: 'reduce_difficulty', priority: 'high', title: 'Ajustar Dificultad', message: 'Considera reducir la dificultad del contenido para un mejor aprendizaje.' }
-        },
+        id: 'low_progress_new_student',
+        condition: 'lessons_completed',
+        threshold: 1,
         falseNode: {
-          id: 'low_engagement',
-          condition: 'last_activity',
-          threshold: 7,
-          trueNode: {
-            id: 'motivational_content',
-            action: { type: 'content', target: 'motivational_lessons', priority: 'high', title: '¡No te detengas!', message: 'Te recomendamos contenido motivacional para retomar el ritmo de estudio.' }
-          },
-          falseNode: {
-            id: 'increase_pace',
-            action: { type: 'pace', target: 'study_schedule', priority: 'medium', title: 'Ajusta tu Ritmo', message: 'Intenta dedicar más tiempo al estudio para mejorar tu progreso.' }
-          }
+            id: 'start_here',
+            action: { type: 'content', target: '##FIRST_LESSON##', priority: 'high', title: '¡Bienvenido/a!', message: '¡Qué bueno tenerte aquí! Te recomendamos empezar por la primera lección para arrancar con todo.' }
+        },
+        trueNode: {
+            id: 'keep_going',
+            action: { type: 'pace', target: 'study_schedule', priority: 'medium', title: '¡Sigue Así!', message: 'Ya has empezado, ¡no te detengas! Intenta establecer un horario de estudio para mantener el ritmo.' }
         }
       }
     };
@@ -176,21 +174,7 @@ export class DecisionTree {
     const conditionValue = this.getConditionValue(node.condition, state);
     const threshold = node.threshold || 0;
 
-    let shouldGoTrue = false;
-    switch (node.condition) {
-      case 'learning_pace':
-        shouldGoTrue = state.learning_pace === 'fast';
-        break;
-      case 'current_difficulty':
-        shouldGoTrue = state.current_difficulty === 'advanced';
-        break;
-      case 'last_activity':
-        const daysSinceLastActivity = this.getDaysSinceLastActivity(state.last_activity);
-        shouldGoTrue = daysSinceLastActivity <= threshold;
-        break;
-      default:
-        shouldGoTrue = conditionValue >= threshold;
-    }
+    let shouldGoTrue = conditionValue >= threshold;
 
     const nextNode = shouldGoTrue ? node.trueNode : node.falseNode;
     return nextNode ? this.traversePerformanceTree(nextNode, state) : null;

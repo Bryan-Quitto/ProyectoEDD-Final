@@ -13,6 +13,8 @@ import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import CourseBuilderPage from './pages/admin/CourseBuilderPage';
 import TeacherDashboardPage from './pages/teacher/TeacherDashboardPage';
 import CourseStudentsPage from './pages/teacher/CourseStudentsPage';
+import ModuleEvaluationBuilderPage from './pages/admin/ModuleEvaluationBuilderPage';
+import ModuleEvaluationPage from './pages/ModuleEvaluationPage';
 
 function App() {
   const { user, loading } = useAuth();
@@ -45,29 +47,39 @@ function App() {
       default:
         return '/dashboard';
     }
-  }
+  };
 
   return (
     <MainLayout>
       <Routes>
         <Route path="/" element={<Navigate to={getHomeRedirect()} replace />} />
+        <Route path="/login" element={<Navigate to={getHomeRedirect()} replace />} />
         
+        {/* Rutas para Estudiantes */}
         <Route element={<ProtectedRoute allowedRoles={['student']} />}>
           <Route path="/dashboard" element={<StudentDashboard />} />
           <Route path="/courses" element={<CourseCatalogPage />} />
           <Route path="/course/:courseId" element={<CourseDetailPage />} />
           <Route path="/course/:courseId/lesson/:lessonId" element={<LessonViewPage />} />
+          <Route path="/course/:courseId/module/:moduleId/evaluation" element={<ModuleEvaluationPage />} />
         </Route>
 
-        <Route element={<ProtectedRoute allowedRoles={['admin', 'teacher']} />}>
+        {/* Rutas para Administradores */}
+        <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
           <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
-          <Route path="/admin/course/create" element={<CourseBuilderPage mode="create" />} />
-          <Route path="/admin/course/edit/:courseId" element={<CourseBuilderPage mode="edit" />} />
-          <Route path="/teacher/course/:courseId/students" element={<CourseStudentsPage />} />
         </Route>
         
+        {/* Rutas para Gestión de Cursos (Admin y Teacher) */}
+        <Route element={<ProtectedRoute allowedRoles={['admin', 'teacher']} />}>
+          <Route path="/manage/course/create" element={<CourseBuilderPage mode="create" />} />
+          <Route path="/manage/course/edit/:courseId" element={<CourseBuilderPage mode="edit" />} />
+          <Route path="/manage/course/:courseId/module/:moduleId/evaluation" element={<ModuleEvaluationBuilderPage />} />
+        </Route>
+
+        {/* Rutas para Profesores */}
         <Route element={<ProtectedRoute allowedRoles={['teacher']} />}>
           <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />
+          <Route path="/teacher/course/:courseId/students" element={<CourseStudentsPage />} />
         </Route>
         
         <Route path="*" element={<Navigate to={getHomeRedirect()} replace />} />

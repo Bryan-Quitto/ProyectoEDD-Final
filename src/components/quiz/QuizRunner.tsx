@@ -23,9 +23,7 @@ const formatTime = (totalSeconds: number) => {
 
 export const QuizRunner: React.FC<QuizRunnerProps> = ({ evaluation, onQuizComplete }) => {
   const { control, handleSubmit, getValues, formState: { isSubmitting } } = useForm<FormData>({
-    defaultValues: {
-      answers: evaluation.questions.reduce((acc, q) => ({ ...acc, [q.id]: [] }), {}),
-    },
+    defaultValues: { answers: evaluation.questions.reduce((acc, q) => ({ ...acc, [q.id]: [] }), {}) },
   });
   
   const [timeLeft, setTimeLeft] = useState((evaluation.time_limit_minutes || 0) * 60);
@@ -36,22 +34,21 @@ export const QuizRunner: React.FC<QuizRunnerProps> = ({ evaluation, onQuizComple
       .filter(([, value]) => Array.isArray(value))
       .reduce((acc, [key, value]) => ({ ...acc, [key]: value.sort() }), {});
 
-    const promise = evaluationService.submitAttempt(evaluation.id, cleanedAnswers);
-
-    toast.promise(promise, {
-      loading: 'Calificando tu examen...',
-      success: (res) => {
-        if (res.error) throw new Error(res.error.message);
-        onQuizComplete(res.data!);
-        return '¡Examen calificado!';
-      },
-      error: (err) => err.message,
-    });
+    const toastId = toast.loading('Calificando tu examen...');
+    try {
+      const result = await evaluationService.submitAttempt(evaluation.id, cleanedAnswers);
+      if (result.error || !result.data) {
+        throw new Error(result.error?.message || 'Ocurrió un error inesperado.');
+      }
+      toast.success('¡Examen calificado!', { id: toastId });
+      onQuizComplete(result.data); // <-- La clave es pasar result.data.attempt
+    } catch (error: any) {
+      toast.error(error.message, { id: toastId });
+    }
   }, [evaluation.id, getValues, onQuizComplete]);
 
   useEffect(() => {
     if (!evaluation.time_limit_minutes) return;
-
     const timer = setInterval(() => {
       setTimeLeft(prevTime => {
         if (prevTime <= 1) {
@@ -63,18 +60,16 @@ export const QuizRunner: React.FC<QuizRunnerProps> = ({ evaluation, onQuizComple
         return prevTime - 1;
       });
     }, 1000);
-
     return () => clearInterval(timer);
   }, [evaluation.time_limit_minutes, submitQuiz]);
 
   const onSubmit = () => {
     const data = getValues();
     const answeredQuestions = Object.values(data.answers).filter(val => val.length > 0).length;
-    
     if (answeredQuestions !== evaluation.questions.length) {
       toast((t) => ( <div className="flex flex-col items-center gap-2"> <span>¿Seguro? No has respondido todas las preguntas.</span> <div className="flex gap-2"> <Button variant="destructive" size="sm" onClick={() => {toast.dismiss(t.id); submitQuiz();}}>Sí, enviar</Button> <Button variant="secondary" size="sm" onClick={() => toast.dismiss(t.id)}>Cancelar</Button> </div> </div> ), { duration: 6000 });
     } else {
-        submitQuiz();
+      submitQuiz();
     }
   };
 
@@ -88,25 +83,17 @@ export const QuizRunner: React.FC<QuizRunnerProps> = ({ evaluation, onQuizComple
             </div>
         </div>
       )}
-      
       {evaluation.questions.map((question, qIndex) => (
         <div key={question.id} className="p-6 border rounded-lg bg-gray-50/50">
           <p className="font-semibold text-lg mb-4">{qIndex + 1}. {question.question_text}</p>
-          <Controller
-            name={`answers.${question.id}`}
-            control={control}
-            defaultValue={[]}
+          <Controller name={`answers.${question.id}`} control={control} defaultValue={[]}
             render={({ field }) => (
               <div className="space-y-3">
                 {question.options?.map((option, oIndex) => (
-                  <label key={oIndex} className="flex items-center p-3 border rounded-md cursor-pointer hover:bg-gray-100 transition-colors has-[:checked]:bg-indigo-50 has-[:checked]:border-indigo-400">
-                    <input
-                      type="checkbox"
-                      onBlur={field.onBlur}
+                  <label key={oIndex} className="flex items-center p-3 border rounded-md cursor-pointer hover:bg-gray-100 has-[:checked]:bg-indigo-50 has-[:checked]:border-indigo-400">
+                    <input type="checkbox" onBlur={field.onBlur}
                       onChange={(e) => {
-                        const newValues = e.target.checked
-                            ? [...field.value, oIndex]
-                            : field.value.filter(v => v !== oIndex);
+                        const newValues = e.target.checked ? [...field.value, oIndex] : field.value.filter(v => v !== oIndex);
                         field.onChange(newValues);
                       }}
                       checked={field.value.includes(oIndex)}
@@ -121,9 +108,7 @@ export const QuizRunner: React.FC<QuizRunnerProps> = ({ evaluation, onQuizComple
         </div>
       ))}
       <div className="flex justify-center mt-8">
-        <Button type="submit" size="lg" isLoading={isSubmitting}>
-          Enviar Examen
-        </Button>
+        <Button type="submit" size="lg" isLoading={isSubmitting}>Enviar Examen</Button>
       </div>
     </form>
   );

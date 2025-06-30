@@ -77,7 +77,8 @@ export interface Question {
 
 export interface Evaluation {
   id:string;
-  lesson_id: string;
+  lesson_id: string | null;
+  module_id: string | null;
   title: string;
   description: string | null;
   evaluation_type: 'quiz' | 'assignment' | 'project';
@@ -140,6 +141,18 @@ export interface PerformanceState {
   current_difficulty: 'beginner' | 'intermediate' | 'advanced';
   learning_pace: 'slow' | 'normal' | 'fast';
   last_activity: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ModuleSupportResource {
+  id: string;
+  module_id: string;
+  performance_level: 'low' | 'average';
+  resource_type: 'pdf' | 'url';
+  title: string;
+  url: string;
+  teacher_id: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -45,6 +45,7 @@ const LessonViewPage: React.FC = () => {
   const [viewState, setViewState] = useState<'loading' | 'content' | 'quiz' | 'result' | 'no_attempts'>('loading');
   const [attemptsHistory, setAttemptsHistory] = useState<EvaluationAttempt[]>([]);
   const [lastAttempt, setLastAttempt] = useState<EvaluationAttempt | null>(null);
+  const [moduleEvaluation, setModuleEvaluation] = useState<Evaluation | null>(null);
 
   const fetchLessonData = useCallback(async () => {
     if (!lessonId || !courseId || !user) {
@@ -63,12 +64,15 @@ const LessonViewPage: React.FC = () => {
       ]);
 
       if (lessonResponse.error || !lessonResponse.data) throw new Error(lessonResponse.error?.message || 'Lección no encontrada.');
-      setLesson(lessonResponse.data);
+      const currentLesson = lessonResponse.data;
+      setLesson(currentLesson);
       
       if (courseResponse.error || !courseResponse.data) throw new Error(courseResponse.error?.message || 'Curso no encontrado.');
       setCourse(courseResponse.data);
 
-      const currentLesson = lessonResponse.data;
+      const { data: moduleEval } = await evaluationService.getByModuleId(currentLesson.module_id);
+      setModuleEvaluation(moduleEval);
+
       if (currentLesson.lesson_type === 'quiz' && currentLesson.evaluation?.id) {
         const historyResponse = await evaluationService.getAttemptsHistory(currentLesson.evaluation.id, user.id);
         if (historyResponse.error || !historyResponse.data) throw new Error(historyResponse.error?.message || 'No se pudo cargar el historial.');
@@ -104,19 +108,25 @@ const LessonViewPage: React.FC = () => {
     fetchLessonData();
   }, [fetchLessonData]);
 
-  const { prevLessonId, nextLessonId } = useMemo(() => {
-      if (!course || !lessonId) return { prevLessonId: null, nextLessonId: null };
-      
-      const allLessons = course.modules?.flatMap(m => m.lessons || []).sort((a, b) => a.order_index - b.order_index) || [];
-      const currentIndex = allLessons.findIndex(l => l.id === lessonId);
+  const navigationInfo = useMemo(() => {
+    if (!course || !lesson) return { prevLessonId: null, nextLessonId: null, isLastInModule: false };
+    
+    const currentModule = course.modules.find(m => m.id === lesson.module_id);
+    if (!currentModule) return { prevLessonId: null, nextLessonId: null, isLastInModule: false };
 
-      if (currentIndex === -1) return { prevLessonId: null, nextLessonId: null };
-      
-      return {
-          prevLessonId: currentIndex > 0 ? allLessons[currentIndex - 1].id : null,
-          nextLessonId: currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1].id : null,
-      };
-  }, [course, lessonId]);
+    const moduleLessons = (currentModule.lessons || []).sort((a, b) => a.order_index - b.order_index);
+    const currentLessonIndexInModule = moduleLessons.findIndex(l => l.id === lesson.id);
+    const isLastInModule = currentLessonIndexInModule === moduleLessons.length - 1;
+
+    const allLessons = course.modules?.flatMap(m => m.lessons || []).sort((a, b) => a.order_index - b.order_index) || [];
+    const currentGlobalIndex = allLessons.findIndex(l => l.id === lesson.id);
+    
+    return {
+      prevLessonId: currentGlobalIndex > 0 ? allLessons[currentGlobalIndex - 1].id : null,
+      nextLessonId: currentGlobalIndex < allLessons.length - 1 ? allLessons[currentGlobalIndex + 1].id : null,
+      isLastInModule,
+    };
+  }, [course, lesson]);
   
   const handleQuizComplete = (newAttempt: EvaluationAttempt) => {
     setLastAttempt(newAttempt);
@@ -136,11 +146,13 @@ const LessonViewPage: React.FC = () => {
         toast.success("Lección completada!");
     }
     
-    if (nextLessonId) {
-        navigate(`/course/${courseId}/lesson/${nextLessonId}`);
+    if (navigationInfo.isLastInModule && moduleEvaluation) {
+      navigate(`/course/${courseId}/module/${lesson?.module_id}/evaluation`);
+    } else if (navigationInfo.nextLessonId) {
+      navigate(`/course/${courseId}/lesson/${navigationInfo.nextLessonId}`);
     } else {
-        toast('¡Felicidades! Has completado el curso.', { icon: '🎉' });
-        navigate(`/course/${courseId}`);
+      toast('¡Felicidades! Has completado el curso.', { icon: '🎉' });
+      navigate(`/course/${courseId}`);
     }
   };
 
@@ -202,24 +214,20 @@ const LessonViewPage: React.FC = () => {
         <div className="mb-6">
           <Link to={`/course/${courseId}`} className="text-sm text-blue-600 hover:underline">← Volver a {course.title}</Link>
         </div>
-
         <main className="bg-white p-6 md:p-8 rounded-lg shadow-lg">
           <header className="mb-6 border-b pb-4">
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{lesson.title}</h1>
             <p className="text-sm text-gray-500 mt-1">Duración estimada: {lesson.estimated_duration} min.</p>
           </header>
-
-          <div className="mb-8 min-h-[300px]">
-              {renderContent()}
-          </div>
-          
+          <div className="mb-8 min-h-[300px]">{renderContent()}</div>
           {lesson.lesson_type === 'quiz' && lesson.evaluation && <AttemptsHistory attempts={attemptsHistory} />}
-          
           {lesson.lesson_type !== 'quiz' && (
             <footer className="flex flex-col sm:flex-row justify-between items-center pt-4 border-t mt-8">
-              <Button onClick={() => prevLessonId && navigate(`/course/${courseId}/lesson/${prevLessonId}`)} disabled={!prevLessonId} variant="secondary"><ArrowLeft className="mr-2 h-4 w-4" /> Anterior</Button>
-              <Button onClick={handleContinue} variant="primary" className="my-4 sm:my-0"><CheckCircle className="mr-2 h-4 w-4" /> {nextLessonId ? 'Completar y Siguiente' : 'Finalizar Lección'}</Button>
-              <Button onClick={() => nextLessonId && navigate(`/course/${courseId}/lesson/${nextLessonId}`)} disabled={!nextLessonId} variant="secondary">Siguiente <ArrowRight className="ml-2 h-4 w-4" /></Button>
+              <Button onClick={() => navigationInfo.prevLessonId && navigate(`/course/${courseId}/lesson/${navigationInfo.prevLessonId}`)} disabled={!navigationInfo.prevLessonId} variant="secondary"><ArrowLeft className="mr-2 h-4 w-4" /> Anterior</Button>
+              <Button onClick={handleContinue} variant="primary" className="my-4 sm:my-0"><CheckCircle className="mr-2 h-4 w-4" />
+                {navigationInfo.isLastInModule && moduleEvaluation ? 'Ir a la Evaluación del Módulo' : 'Completar y Siguiente'}
+              </Button>
+              <Button onClick={() => navigationInfo.nextLessonId && navigate(`/course/${courseId}/lesson/${navigationInfo.nextLessonId}`)} disabled={navigationInfo.isLastInModule || !navigationInfo.nextLessonId} variant="secondary">Siguiente <ArrowRight className="ml-2 h-4 w-4" /></Button>
             </footer>
           )}
         </main>

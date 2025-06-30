@@ -51,10 +51,12 @@ const TeacherDashboardPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {courses.map(course => (
             <div key={course.id} className="flex flex-col rounded-lg shadow-md overflow-hidden bg-white">
-              <CourseCard course={course} className="border-none shadow-none rounded-b-none"/>
+              <Link to={`/course/${course.id}`} className="block hover:opacity-90 transition-opacity">
+                <CourseCard course={course} className="border-none shadow-none rounded-b-none"/>
+              </Link>
               <div className="flex justify-around bg-gray-50 p-1 border-t">
                  <Button variant="ghost" size="sm" asChild>
-                   <Link to={`/admin/course/edit/${course.id}`} className="flex items-center gap-2 text-sm text-gray-700 hover:text-indigo-600">
+                   <Link to={`/manage/course/edit/${course.id}`} className="flex items-center gap-2 text-sm text-gray-700 hover:text-indigo-600">
                      <Edit className="h-4 w-4" /> Editar
                    </Link>
                  </Button>
@@ -87,7 +89,7 @@ const TeacherDashboardPage: React.FC = () => {
           <p className="mt-2 text-lg text-gray-600">Bienvenido, {user?.full_name}.</p>
         </div>
         <Button asChild>
-          <Link to="/admin/course/create">
+          <Link to="/manage/course/create">
             <PlusCircle className="mr-2 h-4 w-4" />
             Crear Nuevo Curso
           </Link>

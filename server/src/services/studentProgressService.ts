@@ -2,6 +2,18 @@ import { supabase } from '../config/supabaseAdmin';
 import type { ApiResponse, StudentProgress } from '@plataforma-educativa/types';
 
 export class StudentProgressService {
+  
+  private async invokeModuleCompletionFunction(studentId: string, lessonId: string) {
+    try {
+      const { error } = await supabase.functions.invoke('process-module-completion', {
+        body: { student_id: studentId, lesson_id: lessonId },
+      });
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error al invocar la Edge Function process-module-completion:', error);
+    }
+  }
+  
   async markLessonAsCompleted(studentId: string, lessonId: string): Promise<ApiResponse<StudentProgress>> {
     try {
       const progressData = {
@@ -9,7 +21,6 @@ export class StudentProgressService {
         lesson_id: lessonId,
         status: 'completed' as const,
         progress_percentage: 100,
-        time_spent: 0, // Podríamos mejorarlo en el futuro
         completed_at: new Date().toISOString(),
         last_accessed: new Date().toISOString()
       };
@@ -21,6 +32,9 @@ export class StudentProgressService {
         .single();
       
       if (error) throw error;
+
+      // Invocamos la Edge Function en segundo plano (sin esperar la respuesta)
+      this.invokeModuleCompletionFunction(studentId, lessonId);
 
       return { data, error: null };
     } catch (error) {

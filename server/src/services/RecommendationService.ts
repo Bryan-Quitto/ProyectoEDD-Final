@@ -22,7 +22,7 @@ export class RecommendationService {
       const recommendations: Recommendation[] = [];
 
       for (const action of actions) {
-        const recommendation = await this.createRecommendation(context.studentId, action, context.courseId, context.evaluation.lesson_id);
+          const recommendation = await this.createRecommendation(context.studentId, action, context.courseId, context.evaluation.lesson_id ?? undefined);
         if (recommendation) {
           recommendations.push(recommendation);
         }
@@ -85,13 +85,45 @@ export class RecommendationService {
 
   private async createRecommendation(studentId: string, action: RecommendationAction, courseId?: string, lessonId?: string): Promise<Recommendation | null> {
     try {
+      let finalTarget = action.target;
+      let finalContentType = this.getContentType(finalTarget);
+
+      if (action.target === '##FIRST_LESSON##' && courseId) {
+        const { data: firstLesson } = await supabase
+          .from('lessons')
+          .select('id, modules!inner(course_id)')
+          .eq('modules.course_id', courseId)
+          .order('order_index', { ascending: true })
+          .limit(1)
+          .single();
+
+        if (firstLesson) {
+          finalTarget = firstLesson.id;
+          finalContentType = 'lesson';
+        } else {
+          return null;
+        }
+      }
+
+      const { data: existingRecommendation } = await supabase
+        .from('recommendations')
+        .select('id')
+        .eq('student_id', studentId)
+        .eq('title', action.title)
+        .eq('is_applied', false)
+        .maybeSingle();
+
+      if (existingRecommendation) {
+        return null;
+      }
+      
       const recommendationData = {
         student_id: studentId,
         recommendation_type: action.type,
         title: action.title,
         description: action.message,
-        recommended_content_id: action.target,
-        recommended_content_type: this.getContentType(action.target),
+        recommended_content_id: finalTarget,
+        recommended_content_type: finalContentType,
         priority: action.priority,
         course_id: courseId,
         lesson_id: lessonId,
@@ -107,6 +139,7 @@ export class RecommendationService {
         .single();
 
       if (error) {
+        console.error("[ERROR] No se pudo crear la recomendación en la BD:", error.message);
         return null;
       }
       return data as Recommendation;
@@ -117,9 +150,10 @@ export class RecommendationService {
   
   private getContentType(target: string): 'lesson' | 'course' | 'evaluation' | null {
     if (!target) return null;
-    if (target.includes('lesson')) return 'lesson';
-    if (target.includes('course')) return 'course';
-    if (target.includes('evaluation')) return 'evaluation';
+    if (target.includes('##')) return null;
+    if (target.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+      return 'lesson';
+    }
     return null;
   }
 
@@ -254,7 +288,7 @@ export class RecommendationService {
 
     const { count: totalLessons } = await supabase
       .from('lessons')
-      .select('id', { count: 'exact', head: true })
+      .select('id, modules!inner(course_id)', { count: 'exact', head: true })
       .eq('modules.course_id', courseId);
 
     const lessonsCompleted = progressData?.filter(p => p.status === 'completed').length || 0;

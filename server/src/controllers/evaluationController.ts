@@ -11,10 +11,8 @@ interface AuthenticatedRequest extends Request {
 export const EvaluationController = {
   async getAttempts(req: Request, res: Response) {
     const { evaluationId } = req.params;
-    const { student_id } = req.query; 
-    if (!student_id) {
-      return res.status(400).json({ data: null, error: { message: "Falta el student_id" } });
-    }
+    const { student_id } = req.query;
+    if (!student_id) return res.status(400).json({ data: null, error: { message: "Falta el student_id" } });
     const result = await evaluationService.getAttempts(evaluationId, student_id as string);
     if (result.error) return res.status(400).json(result);
     return res.status(200).json(result);
@@ -23,16 +21,23 @@ export const EvaluationController = {
   async submitAttempt(req: AuthenticatedRequest, res: Response) {
     const { evaluationId } = req.params;
     const { answers } = req.body;
-    
-    if (!req.user || !req.user.id) {
-      return res.status(401).json({ data: null, error: { message: "No autenticado" } });
-    }
-    
-    if (!answers) {
-       return res.status(400).json({ data: null, error: { message: "Faltan las respuestas" } });
-    }
-
+    if (!req.user || !req.user.id) return res.status(401).json({ data: null, error: { message: "No autenticado" } });
+    if (!answers) return res.status(400).json({ data: null, error: { message: "Faltan las respuestas" } });
     const result = await evaluationService.submitAttempt(evaluationId, req.user.id, answers);
+    if (result.error) return res.status(400).json(result);
+    return res.status(200).json(result);
+  },
+
+  async getEvaluationByModule(req: Request, res: Response) {
+    const { moduleId } = req.params;
+    const result = await evaluationService.getByModuleId(moduleId);
+    if (result.error) return res.status(404).json(result);
+    return res.status(200).json(result);
+  },
+
+  async upsertEvaluationByModule(req: Request, res: Response) {
+    const { moduleId } = req.params;
+    const result = await evaluationService.upsertByModule(moduleId, req.body);
     if (result.error) return res.status(400).json(result);
     return res.status(200).json(result);
   },

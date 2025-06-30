@@ -1,13 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import toast from 'react-hot-toast';
+import React, { useState } from 'react';
 import { useRecommendations } from '../../hooks/useRecommendations';
-import { recommendationService } from '../../services/recommendationService';
-import { CourseService } from '../../services/courseService';
 import { RecommendationCard } from './RecommendationCard';
-import { Button } from '../ui/Button';
 import { Spinner } from '../ui/Spinner';
 import { Alert, AlertDescription, AlertTitle } from '../ui/Alert';
-import type { Course } from '@plataforma-educativa/types';
 
 interface RecommendationPanelProps {
   studentId: string;
@@ -18,14 +13,6 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({ studen
   const { recommendations, loading, error, fetchRecommendations, markAsRead, markAsApplied } = useRecommendations(studentId);
 
   const [filter, setFilter] = useState<'all' | 'unread' | 'applied'>('all');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
-
-  useEffect(() => {
-    CourseService.getEnrolledCourses(studentId).then(res => {
-      if (res.data) setEnrolledCourses(res.data);
-    });
-  }, [studentId]);
 
   const stats = {
     total: recommendations.length,
@@ -39,26 +26,6 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({ studen
     return true;
   });
 
-  const handleGenerateRecommendations = async () => {
-    if (enrolledCourses.length === 0) {
-      toast.error("Debes estar inscrito en al menos un curso para generar recomendaciones.");
-      return;
-    }
-    
-    setIsGenerating(true);
-    const courseIdToGenerate = enrolledCourses[0].id;
-    
-    const result = await recommendationService.generateForCourse(studentId, courseIdToGenerate);
-
-    if (result.error) {
-      toast.error(result.error.message);
-    } else {
-      toast.success(`${result.data?.length || 0} nuevas recomendaciones generadas.`);
-      fetchRecommendations();
-    }
-    setIsGenerating(false);
-  };
-  
   if (loading && recommendations.length === 0) {
     return <div className={`p-8 flex justify-center items-center ${className}`}><Spinner /> <span className="ml-2">Cargando...</span></div>;
   }
@@ -66,12 +33,7 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({ studen
   return (
     <div className={`bg-white rounded-lg shadow-md ${className}`}>
       <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-gray-800">Recomendaciones Personalizadas</h2>
-          <Button onClick={handleGenerateRecommendations} disabled={isGenerating || enrolledCourses.length === 0}>
-            {isGenerating ? <><Spinner size="sm" className="mr-2" /> Generando...</> : 'Generar Nuevas'}
-          </Button>
-        </div>
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">Recomendaciones Personalizadas</h2>
 
         <div className="grid grid-cols-3 gap-4 mb-4">
           <div className="text-center p-3 bg-gray-50 rounded-lg"><div className="text-2xl font-bold">{stats.total}</div><div className="text-sm text-gray-600">Total</div></div>
@@ -86,7 +48,7 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({ studen
         </div>
       </div>
 
-      <div className="p-6 min-h-[200px]">
+      <div className="p-6 min-h-[200px] max-h-[400px] overflow-y-auto">
         {error && (
           <Alert variant="destructive">
             <AlertTitle>Error</AlertTitle>
@@ -97,12 +59,14 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({ studen
           </Alert>
         )}
 
-        {!error && filteredRecommendations.length === 0 && (
+        {!loading && !error && filteredRecommendations.length === 0 && (
           <div className="text-center py-8">
             <h3 className="text-lg font-medium text-gray-600 mb-2">No hay recomendaciones</h3>
-            <p className="text-gray-500 text-sm">Prueba a generar nuevas recomendaciones o cambia de filtro.</p>
+            <p className="text-gray-500 text-sm">Tu progreso se analiza automáticamente para darte consejos.</p>
           </div>
         )}
+        
+        {loading && <div className="flex justify-center"><Spinner /></div>}
 
         <div className="space-y-4">
           {filteredRecommendations.map((recommendation) => (

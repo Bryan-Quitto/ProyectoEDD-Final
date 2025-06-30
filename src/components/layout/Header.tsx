@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { BookOpen, User, Settings, LogOut, ChevronDown } from 'lucide-react';
+import { BookOpen, User, Settings, LogOut, ChevronDown, LayoutDashboard, Library } from 'lucide-react';
 
 const getInitials = (name: string = ''): string => {
   if (!name) return 'U';
@@ -35,16 +35,32 @@ const Header: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const navItems = user?.role === 'student'
-    ? [
-        { name: 'Dashboard', href: '/dashboard' },
-        { name: 'Cursos', href: '/courses' },
-      ]
-    : user?.role === 'admin' || user?.role === 'teacher'
-    ? [
-        { name: 'Dashboard', href: '/admin/dashboard' },
-      ]
-    : [];
+  const getDashboardLink = () => {
+    if (!user) return '/login';
+    switch(user.role) {
+      case 'admin':
+        return '/admin/dashboard';
+      case 'teacher':
+        return '/teacher/dashboard';
+      case 'student':
+      default:
+        return '/dashboard';
+    }
+  };
+  
+  const getNavItems = () => {
+    if (!user) return [];
+
+    const baseNav = [{ name: 'Dashboard', href: getDashboardLink(), icon: LayoutDashboard }];
+    
+    if (user.role === 'student') {
+      return [...baseNav, { name: 'Cursos', href: '/courses', icon: Library }];
+    }
+
+    return baseNav;
+  };
+  
+  const navItems = getNavItems();
 
   return (
     <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40">
@@ -69,6 +85,7 @@ const Header: React.FC = () => {
                     )
                   }
                 >
+                  <item.icon className="mr-2 h-4 w-4" />
                   {item.name}
                 </NavLink>
               ))}
