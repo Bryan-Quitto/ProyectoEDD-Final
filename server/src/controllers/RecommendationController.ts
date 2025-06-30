@@ -6,10 +6,10 @@ const recommendationService = new RecommendationService();
 
 export const RecommendationController = {
   async generateRecommendations(req: Request, res: Response) {
-    const { studentId } = req.params;
-    if (!studentId) return res.status(400).json({ data: null, error: { message: 'ID del estudiante es requerido' } });
+    const { studentId, courseId } = req.params;
+    if (!studentId || !courseId) return res.status(400).json({ data: null, error: { message: 'ID del estudiante y del curso son requeridos' } });
     
-    const result = await recommendationService.generateRecommendationsForStudent(studentId);
+    const result = await recommendationService.generateRecommendationsForStudent(studentId, courseId);
     if (result.error) return res.status(400).json(result);
     return res.status(200).json(result);
   },

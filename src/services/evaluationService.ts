@@ -1,23 +1,69 @@
-import type { ApiResponse, EvaluationAttempt } from '@plataforma-educativa/types';
-import axios from 'axios';
+import type { EvaluationAttempt, Evaluation, ApiResponse } from '@plataforma-educativa/types';
+import { supabase } from './supabase';
 
-const API_BASE_URL = '/api';
-
-type StudentAnswers = Record<string, number>;
-
-const submitAttempt = async (evaluationId: string, studentId: string, answers: StudentAnswers): Promise<ApiResponse<EvaluationAttempt>> => {
-  try {
-    const response = await axios.post(`${API_BASE_URL}/evaluations/${evaluationId}/submit`, {
-      student_id: studentId,
-      answers,
-    });
-    return response.data;
-  } catch (error: any) {
-    const message = error.response?.data?.error?.message || "Error al enviar la evaluación";
-    return { data: null, error: { message } };
-  }
-};
+type StudentAnswers = Record<string, number[]>;
 
 export const evaluationService = {
-  submitAttempt,
+  async getAttemptsHistory(evaluationId: string, studentId: string): Promise<ApiResponse<EvaluationAttempt[]>> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        return { data: null, error: { message: "No hay una sesión activa." } };
+      }
+
+      const response = await fetch(`/api/evaluations/${evaluationId}/attempts?student_id=${studentId}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error.message || 'Error al obtener el historial de intentos');
+      }
+      return await response.json();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error de red';
+      return { data: null, error: { message } };
+    }
+  },
+
+  async submitAttempt(evaluationId: string, answers: StudentAnswers): Promise<ApiResponse<EvaluationAttempt>> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        return { data: null, error: { message: "No hay una sesión activa." } };
+      }
+
+      const response = await fetch(`/api/evaluations/${evaluationId}/submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ answers }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error.message || 'Error al enviar la evaluación');
+      }
+      return await response.json();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error de red al enviar el intento';
+      return { data: null, error: { message } };
+    }
+  },
+
+  async getEvaluationById(id: string): Promise<ApiResponse<Evaluation>> {
+    try {
+      const response = await fetch(`/api/evaluations/${id}`);
+      if (!response.ok) throw new Error('Evaluación no encontrada');
+      return await response.json();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error de red';
+      return { data: null, error: { message } };
+    }
+  },
 };

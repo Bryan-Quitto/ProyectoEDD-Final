@@ -41,12 +41,7 @@ export const EvaluationBuilderModal: React.FC<EvaluationBuilderModalProps> = ({ 
   const maxScore = (questions || []).reduce((sum, q) => sum + (Number(q?.points) || 0), 0);
 
   const onSubmit = (data: FormDataType) => {
-    const finalEvaluationData = {
-      ...data,
-      evaluation_type: 'quiz' as const,
-      time_limit_minutes: Number(data.time_limit_minutes) || undefined,
-      max_score: maxScore,
-    };
+    const finalEvaluationData = { ...data, time_limit_minutes: Number(data.time_limit_minutes) || undefined, max_score: maxScore, evaluation_type: 'quiz' as const, };
     onSave(finalEvaluationData);
     onClose();
   };
@@ -87,9 +82,11 @@ export const EvaluationBuilderModal: React.FC<EvaluationBuilderModalProps> = ({ 
               <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
                 <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 flex justify-between items-center"><span>Constructor de Evaluaciones</span><button onClick={onClose} className="p-1 rounded-full hover:bg-gray-100"><X className="h-4 w-4" /></button></Dialog.Title>
                 <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div><label>Título</label><Input {...register('title', { required: true })} /></div>
                     <div><label>Puntaje para Aprobar (%)</label><Input type="number" {...register('passing_score', { required: true, min: 1, max: 100, valueAsNumber: true })} /></div>
+                    <div><label>Límite de Tiempo (min)</label><Input type="number" {...register('time_limit_minutes', { min: 1, valueAsNumber: true })} placeholder="Sin límite"/></div>
+                    <div><label>Máx. Intentos</label><Input type="number" {...register('max_attempts', { required: true, min: 1, valueAsNumber: true })} /></div>
                   </div>
                   <div className="space-y-4 pt-4 border-t">
                     <div className="flex justify-between items-center"><h4 className="font-semibold">Preguntas</h4><span className="text-sm font-bold text-gray-600">Puntaje Máximo: {maxScore}</span></div>

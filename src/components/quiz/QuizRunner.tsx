@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import type { Evaluation, EvaluationAttempt } from '@plataforma-educativa/types';
 import { Button } from '../ui/Button';
-import { useAuth } from '../../hooks/useAuth';
 import { evaluationService } from '../../services/evaluationService';
 import toast from 'react-hot-toast';
 import { Clock } from 'lucide-react';
@@ -23,7 +22,6 @@ const formatTime = (totalSeconds: number) => {
 }
 
 export const QuizRunner: React.FC<QuizRunnerProps> = ({ evaluation, onQuizComplete }) => {
-  const { user } = useAuth();
   const { control, handleSubmit, getValues, formState: { isSubmitting } } = useForm<FormData>({
     defaultValues: {
       answers: evaluation.questions.reduce((acc, q) => ({ ...acc, [q.id]: [] }), {}),
@@ -32,18 +30,13 @@ export const QuizRunner: React.FC<QuizRunnerProps> = ({ evaluation, onQuizComple
   
   const [timeLeft, setTimeLeft] = useState((evaluation.time_limit_minutes || 0) * 60);
 
-  const submitQuiz = async () => {
+  const submitQuiz = useCallback(async () => {
     const data = getValues();
-    if (!user) {
-      toast.error("Debes iniciar sesión para enviar una evaluación.");
-      return;
-    }
-
     const cleanedAnswers = Object.entries(data.answers)
       .filter(([, value]) => Array.isArray(value))
       .reduce((acc, [key, value]) => ({ ...acc, [key]: value.sort() }), {});
 
-    const promise = evaluationService.submitAttempt(evaluation.id, user.id, cleanedAnswers);
+    const promise = evaluationService.submitAttempt(evaluation.id, cleanedAnswers);
 
     toast.promise(promise, {
       loading: 'Calificando tu examen...',
@@ -54,10 +47,11 @@ export const QuizRunner: React.FC<QuizRunnerProps> = ({ evaluation, onQuizComple
       },
       error: (err) => err.message,
     });
-  }
+  }, [evaluation.id, getValues, onQuizComplete]);
 
   useEffect(() => {
     if (!evaluation.time_limit_minutes) return;
+
     const timer = setInterval(() => {
       setTimeLeft(prevTime => {
         if (prevTime <= 1) {
@@ -69,9 +63,9 @@ export const QuizRunner: React.FC<QuizRunnerProps> = ({ evaluation, onQuizComple
         return prevTime - 1;
       });
     }, 1000);
+
     return () => clearInterval(timer);
   }, [evaluation.time_limit_minutes, submitQuiz]);
-
 
   const onSubmit = () => {
     const data = getValues();

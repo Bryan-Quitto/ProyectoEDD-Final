@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import routes from './routes';
+import { authMiddleware } from './middleware/authMiddleware';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -17,7 +18,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-app.use('/api', routes);
+app.use('/api', authMiddleware, routes);
 
 app.use('*', (req: Request, res: Response) => {
   res.status(404).json({
@@ -25,7 +26,7 @@ app.use('*', (req: Request, res: Response) => {
   });
 });
 
-app.use((error: Error, req: Request, res: Response) => {
+app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
   console.error('Error global:', error.stack);
   res.status(500).json({
     error: { 

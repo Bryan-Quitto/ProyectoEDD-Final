@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Recommendation} from '@plataforma-educativa/types';
-import { RecommendationService } from '../services/recommendationService';
+import type { Recommendation, PaginatedResponse } from '@plataforma-educativa/types';
+import { recommendationService } from '../services/recommendationService';
 
 export const useRecommendations = (studentId?: string) => {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -12,34 +12,14 @@ export const useRecommendations = (studentId?: string) => {
     try {
       setLoading(true);
       setError(null);
-      const { data, error: apiError } = await RecommendationService.getRecommendations(studentId);
+      const { data, error: apiError } = await recommendationService.getStudentRecommendations(studentId);
       if (apiError) {
         throw new Error(apiError.message);
       }
-      setRecommendations(data || []);
+      setRecommendations(data?.data || []);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Error de conexión';
       setError(message);
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [studentId]);
-
-  const generateRecommendations = useCallback(async () => {
-    if (!studentId) return;
-    try {
-      setLoading(true);
-      setError(null);
-      const { data, error: apiError } = await RecommendationService.generateRecommendations(studentId);
-      if (apiError) {
-        throw new Error(apiError.message);
-      }
-      setRecommendations(data || []);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error de conexión';
-      setError(message);
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -47,7 +27,7 @@ export const useRecommendations = (studentId?: string) => {
 
   const markAsRead = useCallback(async (recommendationId: string) => {
     try {
-      const { error: apiError } = await RecommendationService.markAsRead(recommendationId);
+      const { error: apiError } = await recommendationService.markAsRead(recommendationId);
       if (apiError) {
         throw new Error(apiError.message);
       }
@@ -61,13 +41,12 @@ export const useRecommendations = (studentId?: string) => {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Error al marcar como leída';
       setError(message);
-      console.error(err);
     }
   }, []);
 
   const markAsApplied = useCallback(async (recommendationId: string) => {
     try {
-      const { error: apiError } = await RecommendationService.markAsApplied(recommendationId);
+      const { error: apiError } = await recommendationService.markAsApplied(recommendationId);
       if (apiError) {
         throw new Error(apiError.message);
       }
@@ -81,20 +60,20 @@ export const useRecommendations = (studentId?: string) => {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Error al marcar como aplicada';
       setError(message);
-      console.error(err);
     }
   }, []);
 
   useEffect(() => {
-    fetchRecommendations();
-  }, [fetchRecommendations]);
+    if (studentId) {
+        fetchRecommendations();
+    }
+  }, [studentId, fetchRecommendations]);
 
   return {
     recommendations,
     loading,
     error,
     fetchRecommendations,
-    generateRecommendations,
     markAsRead,
     markAsApplied,
   };

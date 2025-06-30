@@ -1,13 +1,107 @@
-import { DecisionNode, RecommendationAction, PerformanceState } from '@plataforma-educativa/types';
+import { DecisionNode, RecommendationAction, PerformanceState, EvaluationContext } from '@plataforma-educativa/types';
 
 export class DecisionTree {
   private root: DecisionNode;
+  private evaluationRoot: DecisionNode;
 
   constructor() {
-    this.root = this.buildDecisionTree();
+    this.root = this.buildPerformanceDecisionTree();
+    this.evaluationRoot = this.buildEvaluationDecisionTree();
   }
 
-  private buildDecisionTree(): DecisionNode {
+  public getRecommendationsFromEvaluation(context: EvaluationContext): RecommendationAction[] {
+    const recommendations: RecommendationAction[] = [];
+    this.traverseEvaluationTree(this.evaluationRoot, context, recommendations);
+    return recommendations;
+  }
+
+  private traverseEvaluationTree(node: DecisionNode, context: EvaluationContext, actions: RecommendationAction[]): void {
+    if (node.action) {
+      actions.push(node.action);
+    }
+
+    if (!node.condition || (!node.trueNode && !node.falseNode)) {
+      return;
+    }
+
+    const { attempt, allAttempts } = context;
+    let conditionMet = false;
+
+    switch (node.condition) {
+      case 'did_pass_diagnostic':
+        conditionMet = attempt.passed;
+        break;
+      case 'completed_60_percent_intro':
+        conditionMet = true; 
+        break;
+      case 'did_pass_module_eval':
+        conditionMet = attempt.passed;
+        break;
+      case 'score_between_50_70':
+        conditionMet = attempt.percentage >= 50 && attempt.percentage <= 70;
+        break;
+      case 'repeated_eval_once':
+        conditionMet = allAttempts.length > 1;
+        break;
+      case 'failed_eval_twice':
+        conditionMet = allAttempts.filter(a => !a.passed).length >= 2;
+        break;
+    }
+
+    const nextNode = conditionMet ? node.trueNode : node.falseNode;
+    if (nextNode) {
+      this.traverseEvaluationTree(nextNode, context, actions);
+    }
+  }
+
+  private buildEvaluationDecisionTree(): DecisionNode {
+    return {
+      id: 'eval_root',
+      condition: 'did_pass_diagnostic',
+      trueNode: {
+        id: 'eval_passed',
+        condition: 'score_between_50_70',
+        trueNode: {
+          id: 'eval_barely_passed',
+          condition: 'repeated_eval_once',
+          falseNode: {
+            id: 'suggest_retry',
+            action: { type: 'support', target: 'self', priority: 'medium', title: 'Refuerzo Opcional', message: '¡Buen intento! Te sugerimos un segundo intento para afianzar conceptos. Aquí tienes material de apoyo adicional.'}
+          },
+          trueNode: {
+            id: 'allow_advance_warning',
+            action: { type: 'advance', target: 'next_lesson', priority: 'low', title: 'Puedes Avanzar', message: 'Has logrado pasar. Puedes continuar, pero ten en cuenta que podrías necesitar repasar estos temas más adelante.'}
+          }
+        },
+        falseNode: { 
+          id: 'eval_passed_well',
+          action: { type: 'advance', target: 'next_lesson', priority: 'medium', title: '¡Excelente!', message: 'Has aprobado con una buena nota. ¡Sigue así y avanza a la siguiente lección!'}
+        }
+      },
+      falseNode: {
+        id: 'eval_failed',
+        condition: 'failed_eval_twice',
+        trueNode: {
+          id: 'failed_multiple_times',
+          action: { type: 'support', target: 'tutor', priority: 'high', title: 'Necesitas Ayuda Adicional', message: 'Has tenido dificultades con esta evaluación varias veces. Te recomendamos contactar a un tutor o usar el foro de ayuda.'}
+        },
+        falseNode: {
+          id: 'failed_once',
+          condition: 'completed_60_percent_intro',
+          trueNode: {
+            id: 'failed_but_reviewed',
+            action: { type: 'remedial', target: 'remedial_content', priority: 'high', title: 'Contenido de Refuerzo', message: 'No te preocupes. Revisa este contenido remedial específico para aclarar tus dudas y vuelve a intentarlo.'}
+          },
+          falseNode: {
+            id: 'failed_not_reviewed',
+            action: { type: 'remedial', target: 'full_review', priority: 'high', title: 'Repaso Guiado Requerido', message: 'Parece que no has revisado los recursos introductorios. Te recomendamos un repaso guiado completo antes de volver a intentarlo.'}
+          }
+        }
+      }
+    };
+  }
+
+  private buildPerformanceDecisionTree(): DecisionNode {
     return {
       id: 'root',
       condition: 'overall_progress',
@@ -19,13 +113,7 @@ export class DecisionTree {
         trueNode: {
           id: 'excellent_performance',
           condition: 'learning_pace',
-          threshold: 0,
-          action: {
-            type: 'content',
-            target: 'advanced_content',
-            priority: 'high',
-            message: 'Excelente progreso! Te recomendamos contenido avanzado para seguir desafiándote.'
-          }
+          action: { type: 'content', target: 'advanced_content', priority: 'high', title: 'Contenido Avanzado', message: '¡Excelente progreso! Te recomendamos contenido avanzado para seguir desafiándote.' }
         },
         falseNode: {
           id: 'good_progress_low_score',
@@ -33,23 +121,11 @@ export class DecisionTree {
           threshold: 3,
           trueNode: {
             id: 'review_needed',
-            condition: '',
-            action: {
-              type: 'review',
-              target: 'previous_lessons',
-              priority: 'medium',
-              message: 'Buen progreso, pero considera revisar lecciones anteriores para mejorar tus calificaciones.'
-            }
+            action: { type: 'review', target: 'previous_lessons', priority: 'medium', title: 'Revisión Sugerida', message: 'Buen progreso, pero considera revisar lecciones anteriores para mejorar tus calificaciones.' }
           },
           falseNode: {
             id: 'practice_more',
-            condition: '',
-            action: {
-              type: 'content',
-              target: 'practice_exercises',
-              priority: 'high',
-              message: 'Necesitas más práctica. Te recomendamos ejercicios adicionales.'
-            }
+            action: { type: 'content', target: 'practice_exercises', priority: 'high', title: 'Más Práctica', message: 'Necesitas más práctica. Te recomendamos ejercicios adicionales.' }
           }
         }
       },
@@ -60,13 +136,7 @@ export class DecisionTree {
         trueNode: {
           id: 'slow_learner',
           condition: 'current_difficulty',
-          threshold: 0,
-          action: {
-            type: 'difficulty',
-            target: 'reduce_difficulty',
-            priority: 'high',
-            message: 'Considera reducir la dificultad del contenido para un mejor aprendizaje.'
-          }
+          action: { type: 'difficulty', target: 'reduce_difficulty', priority: 'high', title: 'Ajustar Dificultad', message: 'Considera reducir la dificultad del contenido para un mejor aprendizaje.' }
         },
         falseNode: {
           id: 'low_engagement',
@@ -74,44 +144,27 @@ export class DecisionTree {
           threshold: 7,
           trueNode: {
             id: 'motivational_content',
-            condition: '',
-            action: {
-              type: 'content',
-              target: 'motivational_lessons',
-              priority: 'high',
-              message: 'Te recomendamos contenido motivacional para retomar el ritmo de estudio.'
-            }
+            action: { type: 'content', target: 'motivational_lessons', priority: 'high', title: '¡No te detengas!', message: 'Te recomendamos contenido motivacional para retomar el ritmo de estudio.' }
           },
           falseNode: {
             id: 'increase_pace',
-            condition: '',
-            action: {
-              type: 'pace',
-              target: 'study_schedule',
-              priority: 'medium',
-              message: 'Intenta dedicar más tiempo al estudio para mejorar tu progreso.'
-            }
+            action: { type: 'pace', target: 'study_schedule', priority: 'medium', title: 'Ajusta tu Ritmo', message: 'Intenta dedicar más tiempo al estudio para mejorar tu progreso.' }
           }
         }
       }
     };
   }
-
+  
   public generateRecommendations(performanceState: PerformanceState): RecommendationAction[] {
     const recommendations: RecommendationAction[] = [];
-    const action = this.traverseTree(this.root, performanceState);
-    
+    const action = this.traversePerformanceTree(this.root, performanceState);
     if (action) {
       recommendations.push(action);
     }
-    
-    const additionalRecommendations = this.generateAdditionalRecommendations(performanceState);
-    recommendations.push(...additionalRecommendations);
-
     return recommendations;
   }
 
-  private traverseTree(node: DecisionNode, state: PerformanceState): RecommendationAction | null {
+  private traversePerformanceTree(node: DecisionNode, state: PerformanceState): RecommendationAction | null {
     if (node.action) {
       return node.action;
     }
@@ -124,44 +177,33 @@ export class DecisionTree {
     const threshold = node.threshold || 0;
 
     let shouldGoTrue = false;
-
     switch (node.condition) {
-      case 'learning_pace': {
+      case 'learning_pace':
         shouldGoTrue = state.learning_pace === 'fast';
         break;
-      }
-      case 'current_difficulty': {
+      case 'current_difficulty':
         shouldGoTrue = state.current_difficulty === 'advanced';
         break;
-      }
-      case 'last_activity': {
+      case 'last_activity':
         const daysSinceLastActivity = this.getDaysSinceLastActivity(state.last_activity);
         shouldGoTrue = daysSinceLastActivity <= threshold;
         break;
-      }
-      default: {
+      default:
         shouldGoTrue = conditionValue >= threshold;
-      }
     }
 
     const nextNode = shouldGoTrue ? node.trueNode : node.falseNode;
-    return nextNode ? this.traverseTree(nextNode, state) : null;
+    return nextNode ? this.traversePerformanceTree(nextNode, state) : null;
   }
 
   private getConditionValue(condition: string, state: PerformanceState): number {
     switch (condition) {
-      case 'overall_progress':
-        return state.overall_progress;
-      case 'average_score':
-        return state.average_score;
-      case 'time_spent':
-        return state.total_time_spent;
-      case 'evaluations_passed':
-        return state.evaluations_passed;
-      case 'lessons_completed':
-        return state.lessons_completed;
-      default:
-        return 0;
+      case 'overall_progress': return state.overall_progress;
+      case 'average_score': return state.average_score;
+      case 'time_spent': return state.total_time_spent;
+      case 'evaluations_passed': return state.evaluations_passed;
+      case 'lessons_completed': return state.lessons_completed;
+      default: return 0;
     }
   }
 
@@ -172,72 +214,35 @@ export class DecisionTree {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
   
-  private generateAdditionalRecommendations(state: PerformanceState): RecommendationAction[] {
-    const recommendations: RecommendationAction[] = [];
-
-    if (state.total_time_spent < 60) {
-      recommendations.push({
-        type: 'pace',
-        target: 'increase_study_time',
-        priority: 'medium',
-        message: 'Intenta dedicar al menos 1 hora por semana al estudio.'
-      });
-    }
-
-    if (state.overall_progress < 20 && state.lessons_completed === 0) {
-      recommendations.push({
-        type: 'content',
-        target: 'introductory_content',
-        priority: 'high',
-        message: 'Comienza con las lecciones introductorias para familiarizarte con el contenido.'
-      });
-    }
-
-    if (state.average_score < 60 && state.evaluations_passed < 2) {
-      recommendations.push({
-        type: 'review',
-        target: 'study_materials',
-        priority: 'high',
-        message: 'Revisa los materiales de estudio antes de intentar más evaluaciones.'
-      });
-    }
-
-    return recommendations;
-  }
-
   public updateTree(newRoot: DecisionNode): void {
     this.root = newRoot;
   }
 
-  public getTreeStats(): { depth: number; nodes: number } {
+  public getTreeStats(): { depth: number; nodeCount: number } {
+    const perfTreeNodes = this.countNodes(this.root);
+    const evalTreeNodes = this.countNodes(this.evaluationRoot);
+    const perfTreeDepth = this.calculateDepth(this.root);
+    const evalTreeDepth = this.calculateDepth(this.evaluationRoot);
+    
     return {
-      depth: this.calculateDepth(this.root),
-      nodes: this.countNodes(this.root)
+      depth: Math.max(perfTreeDepth, evalTreeDepth),
+      nodeCount: perfTreeNodes + evalTreeNodes
     };
   }
 
   private calculateDepth(node: DecisionNode | undefined): number {
-    if (!node) {
-      return 0;
-    }
-    
-    if (!node.trueNode && !node.falseNode) {
-      return 1;
-    }
-
+    if (!node) return 0;
+    if (!node.trueNode && !node.falseNode) return 1;
     const leftDepth = this.calculateDepth(node.trueNode);
     const rightDepth = this.calculateDepth(node.falseNode);
-
     return 1 + Math.max(leftDepth, rightDepth);
   }
 
   private countNodes(node: DecisionNode | undefined): number {
-    if (!node) {
-      return 0;
-    }
+    if (!node) return 0;
     let count = 1;
-    if (node.trueNode) count += this.countNodes(node.trueNode);
-    if (node.falseNode) count += this.countNodes(node.falseNode);
+    count += this.countNodes(node.trueNode);
+    count += this.countNodes(node.falseNode);
     return count;
   }
 }

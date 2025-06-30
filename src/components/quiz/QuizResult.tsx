@@ -1,16 +1,19 @@
 import React from 'react';
 import type { EvaluationAttempt } from '@plataforma-educativa/types';
 import { Button } from '../ui/Button';
-import { CheckCircle, XCircle } from 'lucide-react';
+import { CheckCircle, XCircle, RefreshCw, ArrowRight } from 'lucide-react';
 
 interface QuizResultProps {
   attempt: EvaluationAttempt;
   onNext: () => void;
+  onRetry: () => void;
+  attemptsLeft: number;
 }
 
-export const QuizResult: React.FC<QuizResultProps> = ({ attempt, onNext }) => {
+export const QuizResult: React.FC<QuizResultProps> = ({ attempt, onNext, onRetry, attemptsLeft }) => {
   const Icon = attempt.passed ? CheckCircle : XCircle;
   const color = attempt.passed ? 'text-green-500' : 'text-red-500';
+  const canRetry = attemptsLeft > 0;
 
   return (
     <div className="text-center p-8 bg-white rounded-lg shadow-lg flex flex-col items-center">
@@ -25,9 +28,25 @@ export const QuizResult: React.FC<QuizResultProps> = ({ attempt, onNext }) => {
         Obtuviste {attempt.score} de {attempt.max_score} puntos.
       </p>
 
-      <Button onClick={onNext} size="lg">
-        Continuar
-      </Button>
+      <div className="flex flex-col sm:flex-row gap-4">
+        {canRetry && (
+          <Button onClick={onRetry} variant="secondary">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Volver a Intentar ({attemptsLeft} {attemptsLeft === 1 ? 'restante' : 'restantes'})
+          </Button>
+        )}
+        
+        <Button onClick={onNext} disabled={!attempt.passed && canRetry}>
+          Continuar
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+      </div>
+
+      {!attempt.passed && canRetry && (
+        <p className="text-xs text-gray-500 mt-4">
+          Debes aprobar la evaluación para continuar, o puedes usar tu siguiente intento.
+        </p>
+      )}
     </div>
   );
 };

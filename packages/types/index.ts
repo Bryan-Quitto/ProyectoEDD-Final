@@ -107,6 +107,14 @@ export interface EvaluationAttempt {
   created_at: string;
 }
 
+export interface EvaluationContext {
+  studentId: string;
+  courseId: string;
+  attempt: EvaluationAttempt;
+  evaluation: Evaluation;
+  allAttempts: EvaluationAttempt[];
+}
+
 export interface StudentProgress {
   id: string;
   student_id: string;
@@ -200,15 +208,16 @@ export interface PaginatedResponse<T> {
 }
 
 export interface RecommendationAction {
-  type: 'content' | 'difficulty' | 'pace' | 'review';
+  type: 'content' | 'difficulty' | 'pace' | 'review' | 'remedial' | 'support' | 'advance';
   target: string;
   priority: 'low' | 'medium' | 'high';
   message: string;
+  title: string;
 }
 
 export interface DecisionNode {
   id: string;
-  condition: string;
+  condition?: string;
   threshold?: number;
   trueNode?: DecisionNode;
   falseNode?: DecisionNode;

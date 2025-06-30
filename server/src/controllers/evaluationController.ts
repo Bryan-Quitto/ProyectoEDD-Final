@@ -1,20 +1,40 @@
 import { Request, Response } from 'express';
 import { EvaluationService } from '../services/evaluationService';
+import type { User } from '@plataforma-educativa/types';
 
 const evaluationService = new EvaluationService();
 
+interface AuthenticatedRequest extends Request {
+  user?: Partial<User>;
+}
+
 export const EvaluationController = {
-  async submitAttempt(req: Request, res: Response) {
-      const { evaluationId } = req.params;
-      const { student_id, answers } = req.body;
+  async getAttempts(req: Request, res: Response) {
+    const { evaluationId } = req.params;
+    const { student_id } = req.query; 
+    if (!student_id) {
+      return res.status(400).json({ data: null, error: { message: "Falta el student_id" } });
+    }
+    const result = await evaluationService.getAttempts(evaluationId, student_id as string);
+    if (result.error) return res.status(400).json(result);
+    return res.status(200).json(result);
+  },
 
-      if (!student_id || !answers) {
-          return res.status(400).json({ data: null, error: { message: "Faltan datos del estudiante o las respuestas." } });
-      }
+  async submitAttempt(req: AuthenticatedRequest, res: Response) {
+    const { evaluationId } = req.params;
+    const { answers } = req.body;
+    
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ data: null, error: { message: "No autenticado" } });
+    }
+    
+    if (!answers) {
+       return res.status(400).json({ data: null, error: { message: "Faltan las respuestas" } });
+    }
 
-      const result = await evaluationService.submitAttempt(evaluationId, student_id, answers);
-      if (result.error) return res.status(400).json(result);
-      return res.status(200).json(result);
+    const result = await evaluationService.submitAttempt(evaluationId, req.user.id, answers);
+    if (result.error) return res.status(400).json(result);
+    return res.status(200).json(result);
   },
 
   async createEvaluation(req: Request, res: Response) {

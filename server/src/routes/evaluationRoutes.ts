@@ -3,6 +3,7 @@ import { EvaluationController } from '../controllers/evaluationController';
 
 const router = Router();
 
+router.get('/:evaluationId/attempts', EvaluationController.getAttempts);
 router.post('/:evaluationId/submit', EvaluationController.submitAttempt);
 router.post('/', EvaluationController.createEvaluation);
 router.get('/:id', EvaluationController.getEvaluationById);

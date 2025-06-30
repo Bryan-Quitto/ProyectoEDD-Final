@@ -1,46 +1,61 @@
-import axios from 'axios';
-import type { Recommendation, PerformanceState, ApiResponse } from '@plataforma-educativa/types';
+import type { Recommendation, PaginatedResponse, ApiResponse } from '@plataforma-educativa/types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
+export const recommendationService = {
+  async generateForCourse(studentId: string, courseId: string): Promise<ApiResponse<Recommendation[]>> {
+    try {
+      const response = await fetch(`/api/recommendations/generate/student/${studentId}/course/${courseId}`, {
+        method: 'POST',
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error.message || 'Error al generar recomendaciones');
+      }
+      return await response.json();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error de red';
+      return { data: null, error: { message } };
+    }
   },
-});
 
-export class RecommendationService {
-  static async generateRecommendations(studentId: string): Promise<ApiResponse<Recommendation[]>> {
-    const response = await api.post(`/recommendations/generate/${studentId}`);
-    return response.data;
-  }
+  async getStudentRecommendations(studentId: string, page: number = 1, limit: number = 10, onlyUnread: boolean = false): Promise<ApiResponse<PaginatedResponse<Recommendation>>> {
+    try {
+      const response = await fetch(`/api/recommendations/student/${studentId}?page=${page}&limit=${limit}&onlyUnread=${onlyUnread}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error.message || 'Error al obtener recomendaciones');
+      }
+      return await response.json();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error de red';
+      return { data: null, error: { message } };
+    }
+  },
+  
+  async markAsRead(recommendationId: string): Promise<ApiResponse<Recommendation>> {
+    try {
+      const response = await fetch(`/api/recommendations/${recommendationId}/read`, { method: 'PATCH' });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error.message || 'Error al marcar como leída');
+      }
+      return await response.json();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error de red';
+      return { data: null, error: { message } };
+    }
+  },
 
-  static async getRecommendations(studentId: string): Promise<ApiResponse<Recommendation[]>> {
-    const response = await api.get(`/recommendations/${studentId}`);
-    return response.data;
+  async markAsApplied(recommendationId: string): Promise<ApiResponse<Recommendation>> {
+    try {
+      const response = await fetch(`/api/recommendations/${recommendationId}/applied`, { method: 'PATCH' });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error.message || 'Error al marcar como aplicada');
+      }
+      return await response.json();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error de red';
+      return { data: null, error: { message } };
+    }
   }
-
-  static async markAsRead(recommendationId: string): Promise<ApiResponse<Recommendation>> {
-    const response = await api.put(`/recommendations/${recommendationId}/read`);
-    return response.data;
-  }
-
-  static async markAsApplied(recommendationId: string): Promise<ApiResponse<Recommendation>> {
-    const response = await api.put(`/recommendations/${recommendationId}/applied`);
-    return response.data;
-  }
-
-  static async updatePerformanceState(
-    studentId: string, 
-    performanceState: Partial<PerformanceState>
-  ): Promise<ApiResponse<PerformanceState>> {
-    const response = await api.put(`/recommendations/performance/${studentId}`, performanceState);
-    return response.data;
-  }
-
-  static async getTreeStats(): Promise<ApiResponse<{ depth: number; nodeCount: number }>> {
-    const response = await api.get('/recommendations/tree/stats');
-    return response.data;
-  }
-}
+};

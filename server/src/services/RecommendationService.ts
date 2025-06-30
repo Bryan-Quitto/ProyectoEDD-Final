@@ -5,7 +5,8 @@ import type {
   Recommendation,
   RecommendationAction,
   ApiResponse,
-  PaginatedResponse
+  PaginatedResponse,
+  EvaluationContext,
 } from '@plataforma-educativa/types';
 
 export class RecommendationService {
@@ -15,19 +16,44 @@ export class RecommendationService {
     this.decisionTree = new DecisionTree();
   }
 
-  async generateRecommendationsForStudent(studentId: string): Promise<ApiResponse<Recommendation[]>> {
+  public async generateForEvaluation(context: EvaluationContext): Promise<ApiResponse<Recommendation[]>> {
     try {
-      const performanceState = await this.getStudentPerformanceState(studentId);
+      const actions = this.decisionTree.getRecommendationsFromEvaluation(context);
+      const recommendations: Recommendation[] = [];
+
+      for (const action of actions) {
+        const recommendation = await this.createRecommendation(context.studentId, action, context.courseId, context.evaluation.lesson_id);
+        if (recommendation) {
+          recommendations.push(recommendation);
+        }
+      }
+      
+      this.updateStudentPerformanceState(context.studentId, context.courseId);
+
+      return { data: recommendations, error: null };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al generar recomendaciones post-evaluación';
+      return { data: null, error: { message } };
+    }
+  }
+  
+  public async generateRecommendationsForStudent(studentId: string, courseId: string): Promise<ApiResponse<Recommendation[]>> {
+    try {
+      let performanceState = await this.getStudentPerformanceState(studentId, courseId);
 
       if (!performanceState) {
-        return { data: null, error: { message: 'No se encontró información de rendimiento para el estudiante' } };
+        const creationResult = await this.updateStudentPerformanceState(studentId, courseId);
+        if (creationResult.error || !creationResult.data) {
+          throw new Error(creationResult.error?.message || 'No se pudo crear el estado de rendimiento inicial.');
+        }
+        performanceState = creationResult.data;
       }
 
       const actions = this.decisionTree.generateRecommendations(performanceState);
       const recommendations: Recommendation[] = [];
 
       for (const action of actions) {
-        const recommendation = await this.createRecommendation(studentId, action);
+        const recommendation = await this.createRecommendation(studentId, action, courseId);
         if (recommendation) {
           recommendations.push(recommendation);
         }
@@ -40,12 +66,13 @@ export class RecommendationService {
     }
   }
 
-  private async getStudentPerformanceState(studentId: string): Promise<PerformanceState | null> {
+  private async getStudentPerformanceState(studentId: string, courseId: string): Promise<PerformanceState | null> {
     try {
       const { data, error } = await supabase
         .from('performance_states')
         .select('*')
         .eq('student_id', studentId)
+        .eq('course_id', courseId)
         .single();
       if (error) {
         return null;
@@ -56,16 +83,18 @@ export class RecommendationService {
     }
   }
 
-  private async createRecommendation(studentId: string, action: RecommendationAction): Promise<Recommendation | null> {
+  private async createRecommendation(studentId: string, action: RecommendationAction, courseId?: string, lessonId?: string): Promise<Recommendation | null> {
     try {
       const recommendationData = {
         student_id: studentId,
-        recommendation_type: this.mapActionTypeToRecommendationType(action.type),
-        title: this.generateRecommendationTitle(action),
+        recommendation_type: action.type,
+        title: action.title,
         description: action.message,
         recommended_content_id: action.target,
         recommended_content_type: this.getContentType(action.target),
         priority: action.priority,
+        course_id: courseId,
+        lesson_id: lessonId,
         is_read: false,
         is_applied: false,
         expires_at: this.calculateExpirationDate(action.priority)
@@ -85,32 +114,9 @@ export class RecommendationService {
       return null;
     }
   }
-
-  private mapActionTypeToRecommendationType(actionType: string): 'content' | 'study_plan' | 'difficulty_adjustment' {
-    switch (actionType) {
-      case 'content':
-      case 'review':
-        return 'content';
-      case 'pace':
-        return 'study_plan';
-      case 'difficulty':
-        return 'difficulty_adjustment';
-      default:
-        return 'content';
-    }
-  }
-
-  private generateRecommendationTitle(action: RecommendationAction): string {
-    switch (action.type) {
-      case 'content': return 'Contenido Recomendado';
-      case 'review': return 'Revisión Sugerida';
-      case 'pace': return 'Ajuste de Ritmo de Estudio';
-      case 'difficulty': return 'Ajuste de Dificultad';
-      default: return 'Recomendación Personalizada';
-    }
-  }
-
+  
   private getContentType(target: string): 'lesson' | 'course' | 'evaluation' | null {
+    if (!target) return null;
     if (target.includes('lesson')) return 'lesson';
     if (target.includes('course')) return 'course';
     if (target.includes('evaluation')) return 'evaluation';
@@ -126,7 +132,7 @@ export class RecommendationService {
     return now.toISOString();
   }
 
-  async getStudentRecommendations(studentId: string, page: number = 1, limit: number = 10, onlyUnread: boolean = false): Promise<ApiResponse<PaginatedResponse<Recommendation>>> {
+  public async getStudentRecommendations(studentId: string, page: number = 1, limit: number = 10, onlyUnread: boolean = false): Promise<ApiResponse<PaginatedResponse<Recommendation>>> {
     try {
       let query = supabase
         .from('recommendations')
@@ -159,7 +165,7 @@ export class RecommendationService {
     }
   }
 
-  async markRecommendationAsRead(recommendationId: string): Promise<ApiResponse<Recommendation>> {
+  public async markRecommendationAsRead(recommendationId: string): Promise<ApiResponse<Recommendation>> {
     try {
       const { data, error } = await supabase
         .from('recommendations')
@@ -179,7 +185,7 @@ export class RecommendationService {
     }
   }
 
-  async markRecommendationAsApplied(recommendationId: string): Promise<ApiResponse<Recommendation>> {
+  public async markRecommendationAsApplied(recommendationId: string): Promise<ApiResponse<Recommendation>> {
     try {
       const { data, error } = await supabase
         .from('recommendations')
@@ -199,7 +205,7 @@ export class RecommendationService {
     }
   }
 
-  async updateStudentPerformanceState(studentId: string, courseId: string): Promise<ApiResponse<PerformanceState>> {
+  public async updateStudentPerformanceState(studentId: string, courseId: string): Promise<ApiResponse<PerformanceState>> {
     try {
       const metrics = await this.calculatePerformanceMetrics(studentId, courseId);
       
@@ -236,17 +242,21 @@ export class RecommendationService {
   private async calculatePerformanceMetrics(studentId: string, courseId: string) {
     const { data: progressData } = await supabase
       .from('student_progress')
-      .select(`*, lessons!inner(module_id, modules!inner(course_id))`)
+      .select('status, time_spent, lessons!inner(module_id)')
       .eq('student_id', studentId)
       .eq('lessons.modules.course_id', courseId);
 
     const { data: attemptsData } = await supabase
       .from('evaluation_attempts')
-      .select(`*, evaluations!inner(lesson_id, lessons!inner(module_id, modules!inner(course_id)))`)
+      .select('passed, percentage, evaluations!inner(lesson_id)')
       .eq('student_id', studentId)
       .eq('evaluations.lessons.modules.course_id', courseId);
 
-    const totalLessons = progressData?.length || 0;
+    const { count: totalLessons } = await supabase
+      .from('lessons')
+      .select('id', { count: 'exact', head: true })
+      .eq('modules.course_id', courseId);
+
     const lessonsCompleted = progressData?.filter(p => p.status === 'completed').length || 0;
     const totalTimeSpent = progressData?.reduce((sum, p) => sum + (p.time_spent || 0), 0) || 0;
     const evaluationsPassed = attemptsData?.filter(a => a.passed).length || 0;
@@ -254,12 +264,12 @@ export class RecommendationService {
     let averageScore = 0;
     if (attemptsData && attemptsData.length > 0) {
       const totalPercentage = attemptsData.reduce((sum, a) => sum + (a.percentage || 0), 0);
-      averageScore = totalPercentage / attemptsData.length;
+      averageScore = Math.round(totalPercentage / attemptsData.length);
     }
 
-    const overallProgress = totalLessons > 0 ? (lessonsCompleted / totalLessons) * 100 : 0;
+    const overallProgress = (totalLessons && totalLessons > 0) ? Math.round((lessonsCompleted / totalLessons) * 100) : 0;
     const currentDifficulty = averageScore >= 80 ? 'advanced' : averageScore >= 60 ? 'intermediate' : 'beginner';
-    const learningPace = totalTimeSpent > 180 ? 'fast' : totalTimeSpent < 60 ? 'slow' : 'normal';
+    const learningPace = 'normal';
 
     return {
       overallProgress,
@@ -272,7 +282,7 @@ export class RecommendationService {
     };
   }
 
-  getDecisionTreeStats() {
+  public getDecisionTreeStats() {
     return this.decisionTree.getTreeStats();
   }
 }
