@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import authRoutes from './authRoutes';
+// import authRoutes from './authRoutes'; // <--- LÍNEA ELIMINADA
 import courseRoutes from './courseRoutes';
 import recommendationRoutes from './recommendationRoutes';
 import moduleRoutes from './moduleRoutes';
@@ -12,7 +12,7 @@ import moduleSupportResourceRoutes from './moduleSupportResourceRoutes';
 
 const router = Router();
 
-router.use('/auth', authRoutes);
+// router.use('/auth', authRoutes); // <--- LÍNEA ELIMINADA
 router.use('/courses', courseRoutes);
 router.use('/recommendations', recommendationRoutes);
 router.use('/modules', moduleRoutes);
