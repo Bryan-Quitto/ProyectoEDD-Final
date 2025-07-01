@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import type { Evaluation, EvaluationAttempt } from '@plataforma-educativa/types';
 import { evaluationService } from '../services/evaluationService';
+import { recommendationService } from '../services/recommendationService';
 import { useAuth } from '../hooks/useAuth';
 import { Spinner } from '../components/ui/Spinner';
 import { Alert } from '../components/ui/Alert';
@@ -11,38 +12,52 @@ import { QuizResult } from '../components/quiz/QuizResult';
 
 const ModuleEvaluationPage: React.FC = () => {
   const { courseId, moduleId } = useParams<{ courseId: string; moduleId: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  const evaluationType = new URLSearchParams(location.search).get('type') as Evaluation['evaluation_type'] | null;
 
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewState, setViewState] = useState<'loading' | 'quiz' | 'result'>('loading');
   const [lastAttempt, setLastAttempt] = useState<EvaluationAttempt | null>(null);
   const [attemptsHistory, setAttemptsHistory] = useState<EvaluationAttempt[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
 
   const fetchInitialData = useCallback(async () => {
-    if (!moduleId || !user) return;
+    if (!moduleId || !user || !evaluationType) return;
     setIsLoading(true);
+    setError(null);
     try {
-      const { data, error: apiError } = await evaluationService.getByModuleId(moduleId);
+      const { data, error: apiError } = await evaluationService.getByModuleId(moduleId, evaluationType);
       if (apiError) throw new Error(apiError.message);
-      if (!data) throw new Error("No se encontró una evaluación para este módulo.");
-      setEvaluation(data);
+      if (!data) throw new Error(`No se encontró una ${evaluationType === 'diagnostic' ? 'prueba de diagnóstico' : 'evaluación'} para este módulo.`);
+      const currentEval = Array.isArray(data) ? data[0] : data;
+      setEvaluation(currentEval);
 
-      const { data: attempts, error: attemptsError } = await evaluationService.getAttemptsHistory(data.id, user.id);
+      const { data: attempts, error: attemptsError } = await evaluationService.getAttempts(currentEval.id, user.id);
       if (attemptsError) throw new Error(attemptsError.message);
 
-      setAttemptsHistory(attempts || []);
-      if (attempts && attempts.length > 0) {
-        setLastAttempt(attempts[attempts.length - 1]);
+      const history = attempts || [];
+      setAttemptsHistory(history);
+      const latestAttempt = history.length > 0 ? history[history.length - 1] : null;
+
+      if (evaluationType === 'diagnostic' && latestAttempt) {
+        setLastAttempt(latestAttempt);
+        setViewState('result');
+      } else if (latestAttempt && !evaluationType?.includes('diagnostic') && (latestAttempt.passed || (currentEval.max_attempts - history.length) <= 0)) {
+        setLastAttempt(latestAttempt);
+        setViewState('result');
+      } else {
+        setViewState('quiz');
       }
     } catch (err: any) {
       setError(err.message);
     } finally {
       setIsLoading(false);
     }
-  }, [moduleId, user]);
+  }, [moduleId, user, evaluationType]);
 
   useEffect(() => {
     fetchInitialData();
@@ -51,39 +66,53 @@ const ModuleEvaluationPage: React.FC = () => {
   const handleQuizComplete = (newAttempt: EvaluationAttempt) => {
     setLastAttempt(newAttempt);
     setAttemptsHistory(prev => [...prev, newAttempt]);
-    
-    setIsProcessing(true);
-    toast('Procesando tu resultado y generando consejos...', { icon: '🤖', duration: 3000 });
-
-    setTimeout(() => {
-        setIsProcessing(false);
-        toast.success("¡Módulo evaluado! Revisa la página del curso para ver tus nuevos consejos.", { duration: 4000 });
-        navigate(`/course/${courseId}`, { state: { refresh: true } });
-    }, 3000); // 3 segundos de espera para la Edge Function
+    setViewState('result');
+    toast.success("¡Resultado guardado!", { duration: 4000 });
   };
 
   const handleRetry = () => {
     setLastAttempt(null);
+    setViewState('quiz');
   };
   
-  const handleContinue = () => {
-    navigate(`/course/${courseId}`, { state: { refresh: true } });
+  const handleContinue = async () => {
+    if (!user || !courseId || !lastAttempt || !evaluation) {
+      toast.error('Faltan datos para continuar.');
+      return;
+    }
+
+    const toastId = toast.loading('Buscando siguiente lección...');
+
+    try {
+      console.log('[ModuleEvaluationPage] Llamando a generateForEvaluation con:', { 
+        userId: user.id, 
+        courseId, 
+        evaluationId: evaluation.id, 
+        attemptId: lastAttempt.id 
+      });
+
+      const result = await recommendationService.generateForEvaluation(user.id, courseId, evaluation.id, lastAttempt.id);
+      console.log('[ModuleEvaluationPage] Resultado recibido del servicio API:', result);
+
+      if (result.error) {
+        throw new Error(result.error.message);
+      }
+      
+      toast.success('Ruta actualizada. Redirigiendo al curso...', { id: toastId });
+      navigate(`/course/${courseId}`, { state: { refresh: true } });
+
+    } catch (err: any) {
+      console.error('[ModuleEvaluationPage] Error en la llamada a la API:', err);
+      toast.error(`Error: ${err.message || 'No se pudo determinar el siguiente paso.'}`, { id: toastId });
+      setError('Error: Ruta no encontrada en la API');
+    }
   };
 
   if (isLoading) return <div className="flex justify-center items-center h-screen"><Spinner size="lg" /></div>;
   if (error) return <div className="container mx-auto p-8"><Alert variant="destructive">{error}</Alert></div>;
   if (!evaluation) return <div className="container mx-auto p-8"><Alert>Evaluación no disponible.</Alert></div>;
 
-  if (isProcessing) {
-    return (
-        <div className="flex flex-col justify-center items-center h-screen bg-gray-100">
-            <Spinner size="lg" />
-            <p className="mt-4 text-gray-600 font-semibold">Analizando tu rendimiento...</p>
-        </div>
-    );
-  }
-  
-  const attemptsLeft = evaluation.max_attempts - attemptsHistory.length;
+  const attemptsLeft = (evaluation.max_attempts || 1) - attemptsHistory.length;
 
   return (
     <div className="bg-gray-100 min-h-screen py-8">
@@ -94,12 +123,17 @@ const ModuleEvaluationPage: React.FC = () => {
         <main className="bg-white p-6 md:p-8 rounded-lg shadow-lg">
           <header className="mb-6 border-b pb-4">
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{evaluation.title}</h1>
-            <p className="text-sm text-gray-500 mt-1">{evaluation.description || 'Evaluación final del módulo.'}</p>
+            <p className="text-sm text-gray-500 mt-1">{evaluation.description || 'Completa la siguiente evaluación.'}</p>
           </header>
-          {lastAttempt ? (
-            <QuizResult attempt={lastAttempt} onNext={handleContinue} onRetry={handleRetry} attemptsLeft={attemptsLeft} />
-          ) : (
-            <QuizRunner evaluation={evaluation} onQuizComplete={handleQuizComplete} />
+          {viewState === 'quiz' && <QuizRunner evaluation={evaluation} onQuizComplete={handleQuizComplete} />}
+          {viewState === 'result' && lastAttempt && (
+            <QuizResult 
+              attempt={lastAttempt} 
+              onNext={handleContinue} 
+              onRetry={handleRetry} 
+              attemptsLeft={attemptsLeft}
+              isDiagnostic={evaluationType === 'diagnostic'}
+            />
           )}
         </main>
       </div>

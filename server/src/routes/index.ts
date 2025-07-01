@@ -1,5 +1,4 @@
 import { Router } from 'express';
-// import authRoutes from './authRoutes'; // <--- LÍNEA ELIMINADA
 import courseRoutes from './courseRoutes';
 import recommendationRoutes from './recommendationRoutes';
 import moduleRoutes from './moduleRoutes';
@@ -9,10 +8,10 @@ import performanceRoutes from './performanceRoutes';
 import enrollmentRoutes from './enrollmentRoutes';
 import userRoutes from './userRoutes';
 import moduleSupportResourceRoutes from './moduleSupportResourceRoutes';
+import studentProgressRoutes from './studentProgressRoutes';
 
 const router = Router();
 
-// router.use('/auth', authRoutes); // <--- LÍNEA ELIMINADA
 router.use('/courses', courseRoutes);
 router.use('/recommendations', recommendationRoutes);
 router.use('/modules', moduleRoutes);
@@ -22,5 +21,6 @@ router.use('/performance', performanceRoutes);
 router.use('/enrollments', enrollmentRoutes);
 router.use('/users', userRoutes);
 router.use('/module-resources', moduleSupportResourceRoutes);
+router.use('/progress', studentProgressRoutes);
 
 export default router;

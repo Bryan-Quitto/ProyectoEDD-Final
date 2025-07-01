@@ -1,101 +1,68 @@
-import type { EvaluationAttempt, Evaluation, ApiResponse } from '@plataforma-educativa/types';
 import { supabase } from './supabase';
+import type { ApiResponse, Evaluation, EvaluationAttempt } from '@plataforma-educativa/types';
+import api from './api';
 
-type StudentAnswers = Record<string, number[]>;
+type StudentAnswers = Record<string, { answer: number[], type: string }>;
+
+interface SubmitAttemptResponse {
+  attempt: EvaluationAttempt;
+}
 
 export const evaluationService = {
-  async getAttemptsHistory(evaluationId: string, studentId: string): Promise<ApiResponse<EvaluationAttempt[]>> {
+  async getByModuleId(moduleId: string, type: Evaluation['evaluation_type']): Promise<ApiResponse<Evaluation | null>> {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return { data: null, error: { message: "No hay una sesión activa." } };
+      const { data, error } = await supabase
+        .from('evaluations')
+        .select('*')
+        .eq('module_id', moduleId)
+        .eq('evaluation_type', type)
+        .limit(1)
+        .single();
 
-      const response = await fetch(`/api/evaluations/${evaluationId}/attempts?student_id=${studentId}`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
-      });
+      if (error && error.code !== 'PGRST116') throw error;
+      
+      return { data: data || null, error: null };
+    } catch (error: any) {
+      return { data: null, error: { message: 'Error al obtener la evaluación del módulo.' } };
+    }
+  },
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error.message || 'Error al obtener el historial de intentos');
+  async upsertModuleEvaluation(evalData: Partial<Evaluation>): Promise<ApiResponse<Evaluation>> {
+    try {
+      if (!evalData.module_id || !evalData.evaluation_type) {
+        throw new Error('module_id y evaluation_type son requeridos');
       }
-      return await response.json();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error de red';
-      return { data: null, error: { message } };
+
+      const { data, error } = await supabase
+        .from('evaluations')
+        .upsert(evalData)
+        .select()
+        .single();
+        
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error: any) {
+        return { data: null, error: { message: `Error al guardar la evaluación` } };
     }
   },
 
-  async submitAttempt(evaluationId: string, answers: StudentAnswers): Promise<ApiResponse<EvaluationAttempt>> {
+  async getAttempts(evaluationId: string, studentId: string): Promise<ApiResponse<EvaluationAttempt[]>> {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return { data: null, error: { message: "No hay una sesión activa." } };
-
-      const response = await fetch(`/api/evaluations/${evaluationId}/submit`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ answers }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error.message || 'Error al enviar la evaluación');
-      }
-      return await response.json();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error de red al enviar el intento';
-      return { data: null, error: { message } };
+        const { data, error } = await supabase
+            .from('evaluation_attempts')
+            .select('*')
+            .eq('evaluation_id', evaluationId)
+            .eq('student_id', studentId)
+            .order('attempt_number', { ascending: true });
+        
+        if (error) throw error;
+        return { data, error: null };
+    } catch(error: any) {
+        return { data: null, error: { message: 'Error al obtener los intentos.' }};
     }
   },
 
-  async getByModuleId(moduleId: string): Promise<ApiResponse<Evaluation | null>> {
-    try {
-      const response = await fetch(`/api/evaluations/module/${moduleId}`);
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error.message || 'Error al obtener la evaluación del módulo');
-      }
-      return await response.json();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error de red';
-      return { data: null, error: { message } };
-    }
-  },
-
-  async upsertByModuleId(moduleId: string, evalData: Partial<Evaluation>): Promise<ApiResponse<Evaluation>> {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return { data: null, error: { message: "No hay una sesión activa." } };
-
-      const response = await fetch(`/api/evaluations/module/${moduleId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify(evalData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error.message || 'Error al guardar la evaluación del módulo');
-      }
-      return await response.json();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error de red';
-      return { data: null, error: { message } };
-    }
-  },
-
-  async getEvaluationById(id: string): Promise<ApiResponse<Evaluation>> {
-    try {
-      const response = await fetch(`/api/evaluations/${id}`);
-      if (!response.ok) throw new Error('Evaluación no encontrada');
-      return await response.json();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error de red';
-      return { data: null, error: { message } };
-    }
-  },
+  async submitAttempt(evaluationId: string, answers: StudentAnswers): Promise<ApiResponse<SubmitAttemptResponse>> {
+    return api.post<SubmitAttemptResponse>(`/evaluations/${evaluationId}/submit`, { answers });
+  }
 };
