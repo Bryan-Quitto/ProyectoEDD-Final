@@ -9,6 +9,7 @@ import enrollmentRoutes from './enrollmentRoutes';
 import userRoutes from './userRoutes';
 import moduleSupportResourceRoutes from './moduleSupportResourceRoutes';
 import studentProgressRoutes from './studentProgressRoutes';
+import submissionRoutes from './submissionRoutes';
 
 const router = Router();
 
@@ -22,5 +23,6 @@ router.use('/enrollments', enrollmentRoutes);
 router.use('/users', userRoutes);
 router.use('/module-resources', moduleSupportResourceRoutes);
 router.use('/progress', studentProgressRoutes);
+router.use('/submissions', submissionRoutes);
 
 export default router;

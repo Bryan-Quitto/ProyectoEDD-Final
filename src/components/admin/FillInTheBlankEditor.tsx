@@ -1,81 +1,87 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from '../ui/Button';
-import { Input } from '../ui/Input';
 
 interface FillInTheBlankEditorProps {
   value: any;
   onChange: (value: any) => void;
 }
 
-type ContentPart = { type: 'text' | 'blank'; value: string; id?: string };
+const parseTextToContent = (text: string) => {
+  const parts: { type: 'text' | 'blank'; value: string; id?: string }[] = [];
+  const answers: Record<string, string> = {};
+  const regex = /\[\[(.*?)\]\]/g;
+
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', value: text.substring(lastIndex, match.index) });
+    }
+
+    const answer = match[1];
+    const blankId = `blank_${match.index}_${Date.now()}`;
+    parts.push({ type: 'blank', value: 'Hueco', id: blankId });
+    answers[blankId] = answer;
+    
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push({ type: 'text', value: text.substring(lastIndex) });
+  }
+
+  return { parts, answers };
+};
+
+const parseContentToText = (content: any): string => {
+  if (!content || !Array.isArray(content.parts) || typeof content.answers !== 'object') {
+    return '';
+  }
+  
+  return content.parts.map((part: { type: 'text' | 'blank', value: string, id?: string }) => {
+    if (part.type === 'text') {
+      return part.value;
+    }
+    if (part.type === 'blank' && part.id && content.answers[part.id]) {
+      return `[[${content.answers[part.id]}]]`;
+    }
+    return '';
+  }).join('');
+};
 
 export const FillInTheBlankEditor: React.FC<FillInTheBlankEditorProps> = ({ value, onChange }) => {
-  const [parts, setParts] = useState<ContentPart[]>([]);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [rawText, setRawText] = useState('');
 
   useEffect(() => {
-    if (value && value.parts) {
-      setParts(value.parts);
-      setAnswers(value.answers || {});
-    } else {
-      setParts([{ type: 'text', value: '' }]);
-    }
+    const textFromValue = parseContentToText(value);
+    setRawText(textFromValue);
   }, [value]);
 
-  const updateParentForm = (newParts: ContentPart[], newAnswers: Record<string, string>) => {
-    onChange({ parts: newParts, answers: newAnswers });
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    setRawText(newText);
+    const newContent = parseTextToContent(newText);
+    onChange(newContent);
   };
-
-  const handlePartChange = (index: number, newValue: string) => {
-    const newParts = [...parts];
-    newParts[index].value = newValue;
-    setParts(newParts);
-    updateParentForm(newParts, answers);
-  };
-
-  const handleAnswerChange = (id: string, newAnswer: string) => {
-    const newAnswers = { ...answers, [id]: newAnswer };
-    setAnswers(newAnswers);
-    updateParentForm(parts, newAnswers);
-  };
-
-  const addPart = (type: 'text' | 'blank', index: number) => {
-    const newParts = [...parts];
-    const newPart: ContentPart = type === 'text' 
-      ? { type: 'text', value: '' }
-      : { type: 'blank', value: 'Hueco', id: `blank_${Date.now()}` };
-    newParts.splice(index + 1, 0, newPart);
-    setParts(newParts);
-  };
-
+  
   return (
-    <div className="p-4 border rounded-md bg-white">
-      <label className="block text-sm font-medium text-gray-700 mb-2">Editor de "Completar Espacios"</label>
-      <div className="space-y-2">
-        {parts.map((part, index) => (
-          <div key={index} className="flex items-center gap-2">
-            {part.type === 'text' ? (
-              <Input
-                value={part.value}
-                onChange={(e) => handlePartChange(index, e.target.value)}
-                placeholder="Escribe texto aquí..."
-                className="flex-grow"
-              />
-            ) : (
-              <div className="flex flex-col gap-1 p-2 border border-dashed border-blue-400 rounded-md bg-blue-50 flex-grow">
-                <span className="text-xs font-semibold text-blue-700">ESPACIO EN BLANCO</span>
-                <Input
-                  value={answers[part.id!] || ''}
-                  onChange={(e) => handleAnswerChange(part.id!, e.target.value)}
-                  placeholder="Respuesta correcta..."
-                />
-              </div>
-            )}
-            <Button type="button" variant="outline" size="sm" onClick={() => addPart('text', index)}>+</Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => addPart('blank', index)}>{"[ ]"}</Button>
-          </div>
-        ))}
-      </div>
+    <div className="p-4 border rounded-md bg-gray-50">
+      <label htmlFor="ftb-editor" className="block text-sm font-medium text-gray-700 mb-1">
+        Editor de "Completar Espacios"
+      </label>
+      <p className="text-xs text-gray-500 mb-3">
+        Escribe el texto de la lección. Para crear un espacio en blanco, encierra la respuesta correcta entre dobles corchetes. 
+        <br />
+        Por ejemplo: <code className="bg-gray-200 px-1 rounded">La capital de Francia es [[París]].</code>
+      </p>
+      <textarea
+        id="ftb-editor"
+        value={rawText}
+        onChange={handleTextChange}
+        rows={8}
+        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+        placeholder="Escribe el texto de la lección aquí..."
+      />
     </div>
   );
 };

@@ -39,7 +39,7 @@ const AdminDashboardPage: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-800">Panel de Administración</h1>
           <p className="text-gray-600">Gestiona todos los cursos y el contenido de la plataforma.</p>
         </div>
-        <Link to="/admin/course/create">
+        <Link to="/manage/course/create">
           <Button>
             <PlusCircle className="h-4 w-4 mr-2" />
             Crear Nuevo Curso
@@ -81,13 +81,18 @@ const AdminDashboardPage: React.FC = () => {
                           {course.is_active ? 'Activo' : 'Inactivo'}
                         </span>
                       </td>
+                      {/* --- SECCIÓN MODIFICADA --- */}
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                        <Link to={`/teacher/course/${course.id}/students`} className="text-blue-600 hover:text-blue-900" title="Ver Estudiantes">
-                           <Users className="inline h-5 w-5" />
-                        </Link>
-                        <Link to={`/admin/course/edit/${course.id}`} className="text-indigo-600 hover:text-indigo-900" title="Editar Curso">
-                           <Edit className="inline h-5 w-5" />
-                        </Link>
+                        <Button variant="ghost" size="icon" asChild>
+                          <Link to={`/admin/students`} title="Ver todos los Estudiantes">
+                             <Users className="h-5 w-5" />
+                          </Link>
+                        </Button>
+                        <Button variant="ghost" size="icon" asChild>
+                          <Link to={`/manage/course/edit/${course.id}`} title="Editar Curso">
+                             <Edit className="h-5 w-5" />
+                          </Link>
+                        </Button>
                       </td>
                     </tr>
                   ))}

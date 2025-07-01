@@ -6,6 +6,7 @@ const buttonVariants = {
     primary: 'bg-primary text-white hover:bg-primary-hover',
     secondary: 'bg-surface text-text-primary border border-DEFAULT hover:bg-gray-100',
     destructive: 'bg-error text-white hover:bg-red-600',
+    destructive_outline: 'border border-red-500 text-red-500 bg-transparent hover:bg-red-500/10',
     ghost: 'hover:bg-gray-100',
     link: 'text-primary underline-offset-4 hover:underline',
     outline: 'border border-primary text-primary bg-transparent hover:bg-primary/10',

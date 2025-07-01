@@ -59,40 +59,12 @@ export class DecisionTree {
   private buildDiagnosticTree(): DecisionNode {
     return {
       id: 'diagnostic_root',
-      condition: 'is_high_performance',
-      trueNode: { // Alto rendimiento en diagnóstico
-        id: 'diag_high',
-        action: {
-          type: 'advance',
-          target: 'FIRST_ADVANCED_OR_CORE_LESSON',
-          priority: 'high',
-          title: '¡Excelente Comienzo!',
-          message: 'Demuestras un gran dominio previo. Te recomendamos empezar directamente por este contenido para que aproveches al máximo tu tiempo.'
-        }
-      },
-      falseNode: {
-        id: 'diag_mid_or_low',
-        condition: 'is_average_performance',
-        trueNode: { // Rendimiento promedio en diagnóstico
-          id: 'diag_avg',
-          action: {
-            type: 'content',
-            target: 'FIRST_CORE_LESSON',
-            priority: 'medium',
-            title: '¡Buen Punto de Partida!',
-            message: 'Tienes una base sólida. Te recomendamos empezar aquí para construir sobre lo que ya sabes.'
-          }
-        },
-        falseNode: { // Bajo rendimiento en diagnóstico
-          id: 'diag_low',
-          action: {
-            type: 'remedial',
-            target: 'FIRST_REMEDIAL_LESSON',
-            priority: 'high',
-            title: '¡Vamos a Reforzar las Bases!',
-            message: 'No te preocupes. Hemos preparado este contenido de refuerzo para que te pongas al día y avances con confianza. ¡Empieza por aquí!'
-          }
-        }
+      action: {
+        type: 'content',
+        target: 'MODULE_GENERAL_RESOURCES',
+        priority: 'medium',
+        title: '¡Diagnóstico Completado!',
+        message: 'Hemos establecido una ruta de lecciones inicial para ti basada en tu resultado. ¡Buen trabajo! Antes de empezar, te recomendamos revisar los PDF de recursos generales disponibles en la página del curso.'
       }
     };
   }
@@ -129,11 +101,10 @@ export class DecisionTree {
   }
 }
 
-// Interfaz auxiliar para el árbol, ya que la del paquete de tipos es más genérica
 interface DecisionNode {
-  id: string;
-  condition?: 'is_high_performance' | 'is_average_performance' | 'is_low_performance' | 'failed_twice' | 'is_first_attempt';
-  trueNode?: DecisionNode;
-  falseNode?: DecisionNode;
-  action?: RecommendationAction;
+  id: string;
+  condition?: 'is_high_performance' | 'is_average_performance' | 'is_low_performance' | 'failed_twice' | 'is_first_attempt';
+  trueNode?: DecisionNode;
+  falseNode?: DecisionNode;
+  action?: RecommendationAction;
 }

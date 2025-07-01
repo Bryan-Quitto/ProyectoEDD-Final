@@ -13,6 +13,8 @@ import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import CourseBuilderPage from './pages/admin/CourseBuilderPage';
 import TeacherDashboardPage from './pages/teacher/TeacherDashboardPage';
 import CourseStudentsPage from './pages/teacher/CourseStudentsPage';
+import StudentProgressPage from './pages/teacher/StudentProgressPage';
+import AdminStudentListPage from './pages/admin/AdminStudentListPage';
 import ModuleEvaluationBuilderPage from './pages/admin/ModuleEvaluationBuilderPage';
 import ModuleEvaluationPage from './pages/ModuleEvaluationPage';
 
@@ -67,6 +69,7 @@ function App() {
         {/* Rutas para Administradores */}
         <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
           <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+          <Route path="/admin/students" element={<AdminStudentListPage />} />
         </Route>
         
         {/* Rutas para Gestión de Cursos (Admin y Teacher) */}
@@ -80,6 +83,7 @@ function App() {
         <Route element={<ProtectedRoute allowedRoles={['teacher']} />}>
           <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />
           <Route path="/teacher/course/:courseId/students" element={<CourseStudentsPage />} />
+          <Route path="/teacher/course/:courseId/student/:studentId" element={<StudentProgressPage />} />
         </Route>
         
         <Route path="*" element={<Navigate to={getHomeRedirect()} replace />} />

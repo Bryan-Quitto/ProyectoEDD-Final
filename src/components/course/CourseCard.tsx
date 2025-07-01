@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import type { Course } from '@plataforma-educativa/types';
 
 interface CourseCardProps {
@@ -35,7 +34,7 @@ export const CourseCard: React.FC<CourseCardProps> = ({
   const formatDuration = (minutes: number) => {
     if (!minutes) return 'N/A';
     if (minutes < 60) {
-      return `${minutes} min`;
+      return `${minutes} horas`;
     }
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
@@ -55,11 +54,10 @@ export const CourseCard: React.FC<CourseCardProps> = ({
     return null;
   }
 
+  // --- CAMBIO PRINCIPAL: <Link> se convierte en <div> ---
   return (
-    <Link 
-      to={`/course/${course.id}`}
-      state={{ course }}
-      className={`course-card flex flex-col bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border border-gray-200 hover:border-blue-300 ${className}`}
+    <div 
+      className={`course-card flex flex-col bg-white rounded-lg shadow-md transition-all duration-300 border border-gray-200 ${className}`}
     >
       <div className="relative">
         {course.image_url ? (
@@ -151,6 +149,6 @@ export const CourseCard: React.FC<CourseCardProps> = ({
           </div>
         )}
       </div>
-    </Link>
+    </div>
   );
 };

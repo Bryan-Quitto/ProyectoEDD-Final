@@ -66,21 +66,21 @@ export const moduleSupportResourceService = {
     }
   },
 
-  async uploadPdf(file: File): Promise<ApiResponse<{ path: string }>> {
+   async uploadPdf(file: File): Promise<ApiResponse<{ publicUrl: string }>> {
     try {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Math.random()}.${fileExt}`;
         const filePath = `support-pdfs/${fileName}`;
 
-        let { error: uploadError } = await supabase.storage.from('course-materials').upload(filePath, file);
+        const { error: uploadError } = await supabase.storage.from('course-materials').upload(filePath, file);
 
         if (uploadError) {
             throw uploadError;
         }
 
-        const { data: { publicUrl } } = supabase.storage.from('course-materials').getPublicUrl(filePath);
+        const { data } = supabase.storage.from('course-materials').getPublicUrl(filePath);
 
-        return { data: { path: publicUrl }, error: null };
+        return { data: { publicUrl: data.publicUrl }, error: null };
     } catch (error: any) {
         return { data: null, error: { message: error.message } };
     }

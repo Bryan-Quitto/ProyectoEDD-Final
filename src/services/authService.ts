@@ -36,11 +36,6 @@ export const AuthService = {
       if (error) {
         return { data: null, error: { message: error.message } };
       }
-
-      if (data) {
-        console.log("[5b] AuthService: Se encontraron DATOS en la respuesta.", data);
-      } else {
-      }
       
       return { data, error: null };
 

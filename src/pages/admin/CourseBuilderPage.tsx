@@ -141,7 +141,8 @@ const CourseBuilderPage: React.FC<CourseBuilderPageProps> = ({ mode }) => {
           
           <div>
             <label htmlFor="image_url" className="block text-sm font-medium text-gray-700">URL de la Imagen (Opcional)</label>
-            <Controller name="image_url" control={control} rules={{ pattern: { value: /^(https?:\/\/.*\.(?:png|jpg|jpeg|gif|svg|webp))(?:\?.*)?$/, message: "Debe ser una URL de imagen válida." } }} render={({ field }) => <Input id="image_url" {...field} value={field.value || ''} placeholder="https://ejemplo.com/imagen.png" />} />
+            <Controller name="image_url" control={control} rules={{ pattern: { value: /^https?:\/\/.+\..+/, message: "Debe ser una URL válida." } }} render={({ field }) => <Input id="image_url" {...field} value={field.value || ''} placeholder="https://ejemplo.com/imagen.png" />} />
+
             {errors.image_url && <p className="text-red-500 text-xs mt-1">{errors.image_url.message}</p>}
           </div>
           

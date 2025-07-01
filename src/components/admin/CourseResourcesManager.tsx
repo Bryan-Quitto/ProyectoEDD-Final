@@ -53,7 +53,7 @@ export const CourseResourcesManager: React.FC<CourseResourcesManagerProps> = ({ 
           title: formData.title,
           description: formData.description,
           url: publicUrl,
-          resource_type: 'pdf', // Asumimos PDF por ahora
+          resource_type: 'pdf',
         });
       });
 
@@ -107,8 +107,8 @@ export const CourseResourcesManager: React.FC<CourseResourcesManagerProps> = ({ 
           <Controller name="description" control={control} render={({ field }) => <Input {...field} placeholder="Descripción (opcional)" />} />
         </div>
         <div>
-          <label htmlFor="file-upload" className="sr-only">Elegir archivo</label>
-          <input id="file-upload" type="file" {...register('file', { required: true })} accept=".pdf" className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+          <label htmlFor="course-resource-upload" className="sr-only">Elegir archivo</label>
+          <input id="course-resource-upload" type="file" {...register('file', { required: true })} accept=".pdf" className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
         </div>
         <div className="flex justify-end">
           <Button type="submit" isLoading={isSubmitting}><FileUp className="h-4 w-4 mr-2" /> Subir y Guardar</Button>

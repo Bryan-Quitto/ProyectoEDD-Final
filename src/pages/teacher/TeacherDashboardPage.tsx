@@ -51,7 +51,8 @@ const TeacherDashboardPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {courses.map(course => (
             <div key={course.id} className="flex flex-col rounded-lg shadow-md overflow-hidden bg-white">
-              <Link to={`/course/${course.id}`} className="block hover:opacity-90 transition-opacity">
+              {/* --- LÍNEA MODIFICADA --- */}
+              <Link to={`/manage/course/edit/${course.id}`} className="block hover:opacity-90 transition-opacity">
                 <CourseCard course={course} className="border-none shadow-none rounded-b-none"/>
               </Link>
               <div className="flex justify-around bg-gray-50 p-1 border-t">

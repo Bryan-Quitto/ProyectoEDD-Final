@@ -20,7 +20,7 @@ export class ModuleSupportResourceService {
       return { data: null, error: { message } };
     }
   }
-
+  
   async createResource(resourceData: CreateResourceData): Promise<ApiResponse<ModuleSupportResource>> {
     try {
       const { data, error } = await supabase

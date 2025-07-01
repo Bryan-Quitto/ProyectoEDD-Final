@@ -11,7 +11,6 @@ import { moduleSupportResourceService } from '../../services/moduleSupportResour
 type FormData = {
   title: string;
   url: string;
-  file?: FileList;
 };
 
 interface AddResourceModalProps {
@@ -23,33 +22,30 @@ interface AddResourceModalProps {
 }
 
 export const AddResourceModal: React.FC<AddResourceModalProps> = ({ isOpen, onClose, onResourceAdded, moduleId, performanceLevel }) => {
-  const { control, handleSubmit, register, reset, watch, formState: { errors, isSubmitting } } = useForm<FormData>();
+  const { control, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormData>({
+    defaultValues: { title: '', url: '' }
+  });
   const [resourceType, setResourceType] = useState<'url' | 'pdf'>('url');
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const file = watch('file');
-  const fileName = file && file.length > 0 ? file[0].name : '';
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputId = `module-resource-upload-${moduleId}-${performanceLevel}`;
 
   const onSubmit: SubmitHandler<FormData> = async (formData) => {
     let resourceUrl = formData.url;
 
     if (resourceType === 'pdf') {
-      if (!formData.file || formData.file.length === 0) {
+      if (!selectedFile) {
         toast.error("Por favor, selecciona un archivo PDF.");
         return;
       }
-      const fileToUpload = formData.file[0];
-      const uploadPromise = moduleSupportResourceService.uploadPdf(fileToUpload);
       
-      const uploadResult = await toast.promise(uploadPromise, {
-        loading: 'Subiendo PDF...',
-        success: 'PDF subido con éxito!',
-        error: 'Error al subir el PDF.',
-      });
+      const uploadResult = await moduleSupportResourceService.uploadPdf(selectedFile);
 
       if (uploadResult.error || !uploadResult.data) {
+        toast.error(uploadResult.error?.message || 'Error al subir el PDF.');
         return;
       }
-      resourceUrl = uploadResult.data.path;
+      resourceUrl = uploadResult.data.publicUrl;
     }
 
     const resourceData = {
@@ -58,7 +54,7 @@ export const AddResourceModal: React.FC<AddResourceModalProps> = ({ isOpen, onCl
       resource_type: resourceType,
       title: formData.title,
       url: resourceUrl,
-      teacher_id: null, // El backend podría asociarlo al usuario autenticado si es necesario
+      teacher_id: null,
     };
     
     const creationResult = await moduleSupportResourceService.create(resourceData);
@@ -73,9 +69,29 @@ export const AddResourceModal: React.FC<AddResourceModalProps> = ({ isOpen, onCl
   };
   
   const handleClose = () => {
-    reset();
+    reset({ title: '', url: '' });
+    setSelectedFile(null);
     setResourceType('url');
     onClose();
+  };
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
+  const handleDragEvents = (e: React.DragEvent<HTMLDivElement>, action: 'enter' | 'leave' | 'drop') => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (action === 'enter') setIsDragging(true);
+    if (action === 'leave') setIsDragging(false);
+    if (action === 'drop') {
+      setIsDragging(false);
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        setSelectedFile(e.dataTransfer.files[0]);
+      }
+    }
   };
 
   return (
@@ -88,7 +104,7 @@ export const AddResourceModal: React.FC<AddResourceModalProps> = ({ isOpen, onCl
               <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
                 <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 flex justify-between items-center">
                   <span>Añadir Nuevo Recurso de Apoyo</span>
-                  <button onClick={handleClose} className="p-1 rounded-full hover:bg-gray-100"><X className="h-4 w-4" /></button>
+                  <button type="button" onClick={handleClose} className="p-1 rounded-full hover:bg-gray-100"><X className="h-4 w-4" /></button>
                 </Dialog.Title>
                 <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-4">
                   <div>
@@ -114,21 +130,32 @@ export const AddResourceModal: React.FC<AddResourceModalProps> = ({ isOpen, onCl
                   ) : (
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Archivo PDF</label>
-                       <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                       <div 
+                         onDragEnter={(e) => handleDragEvents(e, 'enter')}
+                         onDragLeave={(e) => handleDragEvents(e, 'leave')}
+                         onDragOver={(e) => handleDragEvents(e, 'enter')}
+                         onDrop={(e) => handleDragEvents(e, 'drop')}
+                         className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md transition-colors ${isDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300'}`}
+                       >
                         <div className="space-y-1 text-center">
                           <UploadCloud className="mx-auto h-12 w-12 text-gray-400" />
                           <div className="flex text-sm text-gray-600">
-                            <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
-                              <span>Selecciona un archivo</span>
-                              <input id="file-upload" type="file" className="sr-only" {...register('file', { required: resourceType === 'pdf' })} accept=".pdf" />
+                            <label htmlFor={fileInputId} className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none">
+                              <span>{selectedFile?.name || 'Selecciona un archivo'}</span>
+                              <input
+                                id={fileInputId}
+                                type="file"
+                                className="sr-only"
+                                accept=".pdf"
+                                onChange={handleFileChange}
+                              />
                             </label>
-                            <p className="pl-1">o arrástralo aquí</p>
+                            {!selectedFile && <p className="pl-1">o arrástralo aquí</p>}
                           </div>
-                          {fileName && <p className="text-xs text-gray-500 mt-2">{fileName}</p>}
-                          <p className="text-xs text-gray-500">PDF hasta 10MB</p>
+                          {selectedFile && <p className="text-xs text-gray-500 mt-2 font-semibold">{selectedFile.name}</p>}
+                          {!selectedFile && <p className="text-xs text-gray-500">PDF hasta 10MB</p>}
                         </div>
                       </div>
-                      {errors.file && <p className="text-red-500 text-xs mt-1">{errors.file.message}</p>}
                     </div>
                   )}
                   

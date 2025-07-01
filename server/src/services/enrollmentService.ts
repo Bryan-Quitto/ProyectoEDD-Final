@@ -1,13 +1,13 @@
 import { supabase } from '../config/supabaseAdmin';
 import type { ApiResponse, Enrollment, User } from '@plataforma-educativa/types';
 
-type CreateEnrollmentData = {
+type EnrollmentData = {
   student_id: string;
   course_id: string;
 };
 
 export class EnrollmentService {
-  async create(data: CreateEnrollmentData): Promise<ApiResponse<Enrollment>> {
+  async create(data: EnrollmentData): Promise<ApiResponse<Enrollment>> {
     const { data: newEnrollment, error } = await supabase
       .from('enrollments')
       .insert(data)
@@ -22,6 +22,20 @@ export class EnrollmentService {
     }
 
     return { data: newEnrollment, error: null };
+  }
+
+  async delete(data: EnrollmentData): Promise<ApiResponse<{ message: string }>> {
+    const { error } = await supabase
+      .from('enrollments')
+      .delete()
+      .eq('student_id', data.student_id)
+      .eq('course_id', data.course_id);
+
+    if (error) {
+      return { data: null, error: { message: error.message, status: 500 } };
+    }
+
+    return { data: { message: 'Inscripción cancelada con éxito.' }, error: null };
   }
 
   async getStudentsByCourse(courseId: string): Promise<ApiResponse<User[]>> {

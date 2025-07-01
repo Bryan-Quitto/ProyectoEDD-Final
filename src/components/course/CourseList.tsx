@@ -29,6 +29,7 @@ export const CourseList: React.FC<CourseListProps> = ({
       const { data, error: apiError } = await CourseService.getAllCourses({
         search: searchTerm,
         difficulty: difficultyFilter !== 'all' ? difficultyFilter : undefined,
+        is_active: 'all'
       });
 
       if (apiError) {
@@ -37,6 +38,8 @@ export const CourseList: React.FC<CourseListProps> = ({
       
       if (data) {
         setCourses(data.data);
+      } else {
+        setCourses([]);
       }
     } catch (err: unknown) {
       if (err instanceof Error) {

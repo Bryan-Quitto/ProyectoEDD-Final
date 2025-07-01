@@ -100,7 +100,10 @@ const StudentDashboard: React.FC = () => {
           ) : enrolledCourses.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {enrolledCourses.map(course => (
-                <CourseCard key={course.id} course={course} />
+                // --- SECCIÓN MODIFICADA ---
+                <Link key={course.id} to={`/course/${course.id}`} className="block">
+                  <CourseCard course={course} />
+                </Link>
               ))}
             </div>
           ) : (

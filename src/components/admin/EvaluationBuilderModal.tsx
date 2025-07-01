@@ -28,15 +28,15 @@ export const EvaluationBuilderModal: React.FC<EvaluationBuilderModalProps> = ({ 
       const isDiagnostic = evaluationType === 'diagnostic';
       const isQuiz = evaluationType === 'quiz';
       
-      let title = `Evaluación Final: ${moduleTitle}`;
-      if (isDiagnostic) title = `Prueba de Diagnóstico: ${moduleTitle}`;
-      if (isQuiz) title = `Autoevaluación para la lección`;
+      let title = `Evaluación Final: `;
+      if (isDiagnostic) title = `Prueba de Diagnóstico: `;
+      if (isQuiz) title = `Prueba: `;
 
       const defaultValues = {
         title: title,
         evaluation_type: evaluationType,
         passing_score: isDiagnostic ? 50 : 70,
-        max_attempts: isDiagnostic ? 1 : (isQuiz ? 100 : 3),
+        max_attempts: isDiagnostic ? 1 : (isQuiz ? 3 : 1),
         questions: [{ id: crypto.randomUUID(), question_text: '', question_type: 'multiple_choice' as const, points: 10, options: ['', ''], correct_options: [] }]
       };
       
@@ -96,7 +96,7 @@ export const EvaluationBuilderModal: React.FC<EvaluationBuilderModalProps> = ({ 
     switch(evaluationType) {
         case 'diagnostic': return `${action} Prueba de Diagnóstico`;
         case 'project': return `${action} Evaluación Final`;
-        case 'quiz': return `${action} Autoevaluación (Quiz)`;
+        case 'quiz': return `${action} Prueba`;
         default: return `${action} Evaluación`;
     }
   };

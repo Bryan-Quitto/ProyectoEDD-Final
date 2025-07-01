@@ -24,10 +24,11 @@ const api = {
         options.body = JSON.stringify(body);
       }
       
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}${endpoint}`, options);
+      const fullUrl = `${import.meta.env.VITE_API_BASE_URL}${endpoint}`;
+
+      const response = await fetch(fullUrl, options);
 
       const responseText = await response.text();
-      console.log(`[API WRAPPER] Respuesta cruda del servidor para ${method} ${endpoint}:`, responseText);
 
       const result: ApiResponse<T> = JSON.parse(responseText);
       
@@ -35,11 +36,9 @@ const api = {
         throw new Error(result.error?.message || `Error en la petición ${method} a ${endpoint}`);
       }
 
-      console.log(`[API WRAPPER] Respuesta parseada exitosa para ${method} ${endpoint}:`, result);
       return result;
 
     } catch (error) {
-      console.error(`[API WRAPPER] Error en la petición para ${method} ${endpoint}:`, error);
       return { data: null, error: { message: (error as Error).message } };
     }
   },
@@ -60,8 +59,8 @@ const api = {
     return this.request<T>('PUT', endpoint, body);
   },
 
-  delete<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>('DELETE', endpoint);
+  delete<T>(endpoint: string, body?: any): Promise<ApiResponse<T>> {
+    return this.request<T>('DELETE', endpoint, body);
   }
 };
 

@@ -1,20 +1,21 @@
-import type { ApiResponse, User } from '@plataforma-educativa/types';
-import axios from 'axios';
+import api from './api';
+import type { ApiResponse, User, PaginatedResponse } from '@plataforma-educativa/types';
 
-const API_BASE_URL = '/api';
+const getTeachers = async (): Promise<ApiResponse<User[]>> => {
+  return api.get<User[]>('/users/teachers');
+};
 
-type Teacher = Pick<User, 'id' | 'full_name'>;
+const getUserById = async (userId: string): Promise<ApiResponse<User>> => {
+  return api.get<User>(`/users/${userId}`);
+};
 
-const getTeachers = async (): Promise<ApiResponse<Teacher[]>> => {
-  try {
-    const response = await axios.get(`${API_BASE_URL}/users/teachers`);
-    return response.data;
-  } catch (error: any) {
-    const message = error.response?.data?.error?.message || "Error al obtener la lista de profesores";
-    return { data: null, error: { message } };
-  }
+const getAllStudents = async (searchTerm: string): Promise<ApiResponse<PaginatedResponse<User>>> => {
+  const url = `/users?search=${encodeURIComponent(searchTerm)}`;
+  return api.get<PaginatedResponse<User>>(url);
 };
 
 export const UserService = {
   getTeachers,
+  getUserById,
+  getAllStudents,
 };

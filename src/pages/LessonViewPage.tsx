@@ -1,18 +1,19 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { lessonService } from '../services/lessonService';
 import { evaluationService } from '../services/evaluationService';
 import { studentProgressService } from '../services/studentProgressService';
-import type { Lesson, EvaluationAttempt, Evaluation, TextContent, FillInTheBlankContent } from '@plataforma-educativa/types';
+import type { Lesson, EvaluationAttempt, Evaluation, FillInTheBlankContent, TextContent } from '@plataforma-educativa/types';
 import { Spinner } from '../components/ui/Spinner';
-import { Alert } from '../components/ui/Alert';
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert';
 import { Button } from '../components/ui/Button';
-import { CheckCircle, ArrowLeft } from 'lucide-react';
+import { ArrowLeft, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { QuizRunner } from '../components/quiz/QuizRunner';
 import { QuizResult } from '../components/quiz/QuizResult';
 import { FillInTheBlankViewer } from '../components/lessons/FillInTheBlankViewer';
 import { useAuth } from '../hooks/useAuth';
+import { TextSubmissionHandler } from '../components/lessons/TextSubmissionHandler';
 
 const LessonViewPage: React.FC = () => {
   const { courseId, lessonId } = useParams<{ courseId: string; lessonId: string }>();
@@ -23,6 +24,9 @@ const LessonViewPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [isActivityFinished, setIsActivityFinished] = useState(false);
+  const [isSubmittingCompletion, setIsSubmittingCompletion] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
   const [quizViewState, setQuizViewState] = useState<'quiz' | 'result'>('quiz');
   const [attemptsHistory, setAttemptsHistory] = useState<EvaluationAttempt[]>([]);
@@ -31,31 +35,45 @@ const LessonViewPage: React.FC = () => {
   const fetchLessonData = useCallback(async () => {
     if (!lessonId || !user) return;
     setIsLoading(true);
+    setError(null);
     try {
-      const lessonResponse = await lessonService.getLessonById(lessonId);
-      if (lessonResponse.error || !lessonResponse.data) {
-        throw new Error(lessonResponse.error?.message || 'Lección no encontrada.');
+      const { data: lessonData, error: lessonError } = await lessonService.getLessonById(lessonId, user.id);
+      
+      if (lessonError || !lessonData) {
+        throw new Error(lessonError?.message || 'Lección no encontrada.');
       }
-      const currentLesson = lessonResponse.data;
-      setLesson(currentLesson);
-      setIsCompleted(currentLesson.is_completed_by_user || false);
+      
+      const completed = lessonData.is_completed_by_user || false;
+      
+      setLesson(lessonData);
+      setIsCompleted(completed);
 
-      if (currentLesson.lesson_type === 'quiz' && currentLesson.evaluation?.id) {
-        const historyResponse = await evaluationService.getAttempts(currentLesson.evaluation.id, user.id);
-        if (historyResponse.error || !historyResponse.data) throw new Error('No se pudo cargar el historial del quiz.');
+      if (completed) {
+        setIsActivityFinished(true);
+      } else {
+        if (lessonData.estimated_duration > 0 && (lessonData.lesson_type === 'fill_in_the_blank' || lessonData.lesson_type === 'text')) {
+          setTimeLeft(lessonData.estimated_duration * 60);
+        }
+        if (lessonData.lesson_type === 'text' && lessonData.target_level === 'advanced') {
+          setIsActivityFinished(true);
+        }
+      }
+
+      if (lessonData.lesson_type === 'quiz' && lessonData.evaluation?.id) {
+        const { data: history, error: historyError } = await evaluationService.getAttempts(lessonData.evaluation.id, user.id);
+        if (historyError || !history) throw new Error('No se pudo cargar el historial del quiz.');
         
-        const history = historyResponse.data;
         setAttemptsHistory(history);
         const latestAttempt = history.length > 0 ? history[history.length - 1] : null;
 
         if (latestAttempt) {
             setLastAttempt(latestAttempt);
             setQuizViewState('result');
+            if(latestAttempt.passed) setIsActivityFinished(true);
         } else {
             setQuizViewState('quiz');
         }
       }
-
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Ocurrió un error inesperado.');
     } finally {
@@ -66,21 +84,29 @@ const LessonViewPage: React.FC = () => {
   useEffect(() => {
     fetchLessonData();
   }, [fetchLessonData]);
+  
+  useEffect(() => {
+    if (timeLeft === null || timeLeft <= 0 || isActivityFinished) return;
+    const timerId = setInterval(() => setTimeLeft(prev => (prev ? prev - 1 : 0)), 1000);
+    return () => clearInterval(timerId);
+  }, [timeLeft, isActivityFinished]);
 
-  const handleCompleteLesson = async () => {
-    if (!lessonId || !user || !courseId || isCompleted) return;
+  const handleActivityCompletion = useCallback(() => {
+    setIsActivityFinished(true);
+    toast.success('¡Actividad completada! Ahora puedes marcar la lección como finalizada.');
+  }, []);
 
-    const promise = studentProgressService.markLessonAsCompleted(user.id, lessonId, courseId);
-    toast.promise(promise, {
-      loading: 'Guardando tu progreso...',
-      success: (res) => {
-        if (res.error) throw new Error(res.error.message);
-        setIsCompleted(true);
+  const handleMarkAsCompleted = async () => {
+    if (!lessonId || !user || !courseId) return;
+    setIsSubmittingCompletion(true);
+    const { error } = await studentProgressService.markLessonAsCompleted(user.id, lessonId, courseId);
+    if (error) {
+        toast.error(`Error al guardar el progreso: ${error.message}`);
+        setIsSubmittingCompletion(false);
+    } else {
+        toast.success('¡Lección completada! Volviendo al curso...');
         navigate(`/course/${courseId}`, { state: { refresh: true } });
-        return '¡Lección completada! Volviendo al curso...';
-      },
-      error: (err) => `Error: ${err.message}`
-    });
+    }
   };
 
   const handleQuizComplete = (newAttempt: EvaluationAttempt) => {
@@ -88,39 +114,74 @@ const LessonViewPage: React.FC = () => {
     setAttemptsHistory(prev => [...prev, newAttempt]);
     setQuizViewState('result');
     if (newAttempt.passed) {
-      handleCompleteLesson();
+      handleActivityCompletion();
     }
   };
 
   const handleQuizRetry = () => {
     setLastAttempt(null);
     setQuizViewState('quiz');
-  }
- 
+  };
+  
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const renderLessonContent = () => {
     if (!lesson) return <Alert>No hay contenido disponible para esta lección.</Alert>;
+    
+    if (isCompleted) {
+        if (lesson.lesson_type === 'text') {
+            return <TextSubmissionHandler lesson={lesson} onSubmissionComplete={() => {}} />;
+        }
+        return (
+            <Alert variant='default' className='text-center'>
+                <CheckCircle className="h-5 w-5 mx-auto mb-2 text-green-500" />
+                <AlertTitle className='font-bold'>Lección Completada</AlertTitle>
+                <AlertDescription>
+                    Ya has completado esta lección. Puedes volver al curso.
+                </AlertDescription>
+            </Alert>
+        );
+    }
+
+    if (isActivityFinished) {
+        return (
+            <Alert variant="default" className="bg-green-50 border-green-200 text-center">
+                <CheckCircle className="h-5 w-5 mx-auto mb-2 text-green-600" />
+                <AlertTitle className="text-green-800 font-semibold">¡Actividad Lista!</AlertTitle>
+                <AlertDescription className="text-green-700">
+                    Has completado la actividad de esta lección. Haz clic en el botón de abajo para guardar tu progreso.
+                </AlertDescription>
+            </Alert>
+        );
+    }
 
     switch (lesson.lesson_type) {
       case 'text':
-        if (!lesson.content) return <Alert>Contenido no disponible.</Alert>;
-        const textContent = lesson.content as TextContent;
-        return <div className="prose lg:prose-xl max-w-none" dangerouslySetInnerHTML={{ __html: textContent.text }} />;
+        if(lesson.target_level === 'advanced'){
+            const textContent = (lesson.content as TextContent)?.text;
+            return <div className="prose max-w-none p-4" dangerouslySetInnerHTML={{ __html: textContent || '' }} />;
+        }
+        return <TextSubmissionHandler lesson={lesson} onSubmissionComplete={handleActivityCompletion} />;
       
       case 'fill_in_the_blank':
-        if (!lesson.content) return <Alert>Contenido no disponible.</Alert>;
         const ftbContent = lesson.content as FillInTheBlankContent;
-        return <FillInTheBlankViewer content={ftbContent} />;
+        return <FillInTheBlankViewer content={ftbContent} onCompletion={handleActivityCompletion} />;
 
       case 'quiz':
         if (!lesson.evaluation) return <Alert>La evaluación para este quiz no está disponible.</Alert>;
         if (quizViewState === 'result' && lastAttempt) {
             const attemptsLeft = (lesson.evaluation.max_attempts || 1) - attemptsHistory.length;
-            return <QuizResult attempt={lastAttempt} onNext={handleCompleteLesson} onRetry={handleQuizRetry} attemptsLeft={attemptsLeft} />
+            return <QuizResult attempt={lastAttempt} onNext={handleActivityCompletion} onRetry={handleQuizRetry} attemptsLeft={attemptsLeft} />
         }
         return <QuizRunner evaluation={lesson.evaluation as Evaluation} onQuizComplete={handleQuizComplete} />;
 
       default:
-        return <Alert>Este tipo de lección no es compatible.</Alert>;
+        const defaultContent = (lesson.content as TextContent)?.text;
+        return <div className="prose max-w-none p-4" dangerouslySetInnerHTML={{ __html: defaultContent || 'Contenido no disponible.' }} />;
     }
   };
 
@@ -137,27 +198,39 @@ const LessonViewPage: React.FC = () => {
   }
 
   return (
-    <div className="bg-gray-100 min-h-screen py-8">
-      <div className="container mx-auto px-4">
-        <div className="mb-6">
-          <Link to={`/course/${courseId}`} className="text-sm text-blue-600 hover:underline">← Volver al Curso</Link>
+    <div className="bg-gray-50 min-h-screen py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        <div className="mb-4">
+          <Link to={`/course/${courseId}`} className="flex items-center text-sm text-blue-600 hover:underline">
+            <ArrowLeft className="h-4 w-4 mr-1" /> Volver al Curso
+          </Link>
         </div>
-        <main className="bg-white p-6 md:p-8 rounded-lg shadow-lg">
-          <header className="mb-6 border-b pb-4">
+        <main className="bg-white p-6 md:p-8 rounded-lg shadow-md">
+          <header className="mb-6 pb-4 border-b">
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{lesson.title}</h1>
             <p className="text-sm text-gray-500 mt-1">Duración estimada: {lesson.estimated_duration} min.</p>
           </header>
-          <div className="mb-8 min-h-[300px]">
-          {renderLessonContent()}
-        </div>
-          {lesson.lesson_type !== 'quiz' && (
+          
+          {timeLeft !== null && !isCompleted && !isActivityFinished && (
+            <div className={`text-center font-bold text-xl mb-6 p-2 rounded-md ${timeLeft <= 60 ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-800'}`}>
+              Tiempo restante: {formatTime(timeLeft)}
+            </div>
+          )}
+
+          <div className="mb-8 min-h-[250px]">
+            {renderLessonContent()}
+          </div>
+          
+          {isActivityFinished && !isCompleted && (
             <footer className="flex flex-col sm:flex-row justify-end items-center pt-4 border-t mt-8">
                 <Button 
-                onClick={handleCompleteLesson} 
-                variant="primary"
-                disabled={isCompleted}
+                    onClick={handleMarkAsCompleted} 
+                    variant="primary"
+                    size="lg"
+                    disabled={isCompleted || isSubmittingCompletion}
+                    isLoading={isSubmittingCompletion}
                 >
-                <CheckCircle className="mr-2 h-4 w-4" />
+                <CheckCircle className="mr-2 h-5 w-5" />
                 {isCompleted ? 'Lección Completada' : 'Marcar como Completada y Volver'}
                 </Button>
             </footer>

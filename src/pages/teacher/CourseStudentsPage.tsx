@@ -88,7 +88,9 @@ const CourseStudentsPage: React.FC = () => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.email}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button className="text-indigo-600 hover:text-indigo-900">Ver Progreso</button>
+                  <Link to={`/teacher/course/${courseId}/student/${student.id}`} className="text-indigo-600 hover:text-indigo-900">
+                    Ver Progreso
+                  </Link>
                 </td>
               </tr>
             )) : (

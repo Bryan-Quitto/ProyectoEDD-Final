@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { supabase } from '../config/supabaseAdmin';
-import type { ApiResponse, PaginatedResponse, Recommendation, EvaluationContext } from '@plataforma-educativa/types';
+import type { ApiResponse, PaginatedResponse, Recommendation } from '@plataforma-educativa/types';
 import { RecommendationService } from '../services/RecommendationService';
 import { evaluationService } from '../services/evaluationService';
 
@@ -8,24 +8,59 @@ const recommendationService = new RecommendationService();
 
 export const RecommendationController = {
   async generateForLessonCompletion(req: Request, res: Response): Promise<void> {
-    const { studentId, lessonId, courseId } = req.body;
+    console.log('\n--- [BE] INICIO: Marcando lección como completada ---');
     try {
-        if (!studentId || !lessonId || !courseId) {
-            res.status(400).json({ data: null, error: { message: 'studentId, lessonId, y courseId son requeridos.' } });
+        const { studentId, lessonId } = req.body;
+        console.log(`[BE] Recibido - StudentID: ${studentId}, LessonID: ${lessonId}`);
+
+        if (!studentId || !lessonId) {
+            console.error('[BE] ERROR: Faltan studentId o lessonId en el body.');
+            res.status(400).json({ data: null, error: { message: 'studentId y lessonId son requeridos.' } });
             return;
         }
 
-        // Aquí podríamos invocar una lógica de recomendación específica para cuando se completa una lección.
-        // Por ahora, simplemente devolvemos un éxito para resolver el 404.
-        // En el futuro, podríamos llamar a algo como:
-        // const { data, error } = await recommendationService.generateForCompletedLesson(studentId, lessonId, courseId);
-        // if (error) throw new Error(error.message);
+        const now = new Date().toISOString();
+        
+        const payloadToUpsert = {
+            student_id: studentId,
+            lesson_id: lessonId,
+            status: 'completed',
+            progress_percentage: 100,
+            completed_at: now,
+            updated_at: now,
+            time_spent: 0, // Valor por defecto, se puede mejorar después
+            last_accessed: now, 
+        };
 
-        res.status(200).json({ data: { message: "Progreso registrado y recomendaciones actualizadas." }, error: null });
+        console.log('[BE] Preparando para hacer "upsert" con el siguiente payload:', payloadToUpsert);
+
+        const { data, error } = await supabase
+            .from('student_progress')
+            .upsert(payloadToUpsert, {
+                onConflict: 'student_id, lesson_id',
+            })
+            .select()
+            .single();
+
+        console.log('[BE] Respuesta de Supabase:', { data, error });
+
+        if (error) {
+            console.error("[BE] ERROR de Supabase durante el upsert:", error);
+            throw new Error('No se pudo guardar el progreso en la base de datos.');
+        }
+
+        console.log('[BE] ÉXITO: Upsert realizado correctamente. Fila afectada:', data);
+        console.log('--- [BE] FIN: Marcando lección como completada ---\n');
+        
+        res.status(200).json({ data, error: null });
+
     } catch (error) {
+        console.error("[BE] ERROR CATASTRÓFICO en el bloque catch:", error);
         res.status(500).json({ data: null, error: { message: (error as Error).message } });
     }
   },
+
+  // ... (el resto de las funciones del controlador permanecen igual)
 
   async generateAndGetRecommendations(req: Request, res: Response): Promise<void> {
     const { studentId, courseId } = req.params;
