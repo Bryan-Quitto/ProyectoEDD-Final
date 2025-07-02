@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom'; // Asegúrate de que Link esté importado
 import { CourseCard } from './CourseCard';
 import type { Course } from '@plataforma-educativa/types';
 import { CourseService } from '../../services/courseService';
@@ -163,11 +164,13 @@ export const CourseList: React.FC<CourseListProps> = ({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {sortedCourses.map((course) => (
-            <CourseCard
-              key={course.id}
-              course={course}
-              className="h-full"
-            />
+            // --- SECCIÓN MODIFICADA ---
+            <Link key={course.id} to={`/course/${course.id}`} className="block h-full">
+              <CourseCard
+                course={course}
+                className="h-full"
+              />
+            </Link>
           ))}
         </div>
       )}
